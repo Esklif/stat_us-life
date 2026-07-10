@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+# Personal application data
+fandom_data.json
+fandom_data.json.bak
+fandom_data.json.tmp
+
+# Secrets and local settings
+.env
+.streamlit/secrets.toml
+
+# Local distribution archives
+*.zip
