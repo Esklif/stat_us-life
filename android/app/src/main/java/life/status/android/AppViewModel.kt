@@ -28,6 +28,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     init { viewModelScope.launch { _state.value = UiState(repository.load(), loading = false) } }
 
     fun clearError() { _state.value = _state.value.copy(error = null) }
+    fun savedApiKey(): String = repository.apiKey()
     private fun mutate(block: (AppData) -> AppData) {
         val changed = block(_state.value.data)
         _state.value = _state.value.copy(data = changed, error = null)
@@ -36,7 +37,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private fun updateWorld(id: String, block: (World) -> World) = mutate { data -> data.copy(worlds = data.worlds.map { if (it.id == id) block(it) else it }) }
     private fun fail(error: Throwable) { _state.value = _state.value.copy(busy = false, error = error.message ?: "Неизвестная ошибка") }
 
-    fun saveGlobal(profile: Profile, settings: ApiSettings, key: String) { repository.saveApiKey(key); mutate { it.copy(userProfile = profile, apiConfig = settings) } }
+    fun saveGlobal(profile: Profile, settings: ApiSettings, key: String) {
+        runCatching { repository.saveApiKey(key) }
+            .onSuccess { mutate { it.copy(userProfile = profile, apiConfig = settings) } }
+            .onFailure(::fail)
+    }
     fun createWorld(title: String, description: String) = mutate { data ->
         val profile = data.userProfile.copy(followers = 0, reposts = emptyList())
         data.copy(worlds = data.worlds + World(title = title.trim(), description = description.trim(), playerProfile = profile, crowdAccounts = makeCrowd()))

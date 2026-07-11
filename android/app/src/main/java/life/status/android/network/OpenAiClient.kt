@@ -10,6 +10,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 @Serializable data class ChatMessage(val role: String, val content: String)
@@ -25,14 +26,23 @@ class OpenAiClient {
         require(key.isNotBlank()) { "API-ключ не задан" }
         require(settings.proxyUrl.startsWith("https://") || settings.proxyUrl.startsWith("http://")) { "Некорректный URL API" }
         val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(settings.modelName, messages, maxTokens))
+        val baseUrl = settings.proxyUrl.trim().trimEnd('/')
+        val endpoint = if (baseUrl.endsWith("/chat/completions")) baseUrl else "$baseUrl/chat/completions"
         val request = Request.Builder()
-            .url(settings.proxyUrl.trimEnd('/') + "/chat/completions")
+            .url(endpoint)
             .header("Authorization", "Bearer $key")
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("Ошибка API HTTP ${response.code}")
-            val result = response.body?.string() ?: error("Пустой ответ API")
+            val result = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val details = result.replace(Regex("\\s+"), " ").trim().take(300)
+                throw IOException(
+                    "Ошибка API HTTP ${response.code}" +
+                        if (details.isBlank()) "" else ": $details"
+                )
+            }
+            if (result.isBlank()) error("Пустой ответ API")
             json.decodeFromString<ChatResponse>(result).choices.firstOrNull()?.message?.content?.trim()
                 ?: error("Неожиданный ответ API")
         }

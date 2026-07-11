@@ -18,6 +18,12 @@ def application_dir():
     return Path(__file__).resolve().parent
 
 
+def bundled_resource(name):
+    """Returns a bundled data file both in source and PyInstaller builds."""
+    bundle_dir = Path(getattr(sys, "_MEIPASS", application_dir()))
+    return bundle_dir / name
+
+
 def find_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
         server.bind((HOST, 0))
@@ -30,7 +36,9 @@ def run_streamlit_server(port):
 
     from streamlit.web import cli as streamlit_cli
 
-    app_path = application_dir() / "app.py"
+    app_path = bundled_resource("app.py")
+    if not app_path.is_file():
+        raise FileNotFoundError(f"Не найден файл приложения: {app_path}")
     sys.argv = [
         "streamlit",
         "run",
@@ -41,6 +49,8 @@ def run_streamlit_server(port):
         str(port),
         "--server.headless",
         "true",
+        "--global.developmentMode",
+        "false",
         "--server.fileWatcherType",
         "none",
         "--browser.gatherUsageStats",
@@ -59,7 +69,10 @@ def wait_for_server(url, process, timeout=30):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if process.poll() is not None:
-            raise RuntimeError("Локальный сервер приложения завершился с ошибкой.")
+            raise RuntimeError(
+                "Локальный сервер приложения завершился с ошибкой. "
+                "Подробности сохранены в журнале запуска."
+            )
         try:
             with urllib.request.urlopen(url, timeout=1):
                 return
@@ -73,11 +86,17 @@ def run_desktop():
     port = find_free_port()
     url = f"http://{HOST}:{port}"
     creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    log_dir = Path(os.getenv("LOCALAPPDATA", Path.home())) / "stat_us life" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "desktop-server.log"
+    log_file = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
         server_command(port),
         cwd=application_dir(),
         env=os.environ.copy(),
         creationflags=creation_flags,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
     )
 
     try:
@@ -100,6 +119,7 @@ def run_desktop():
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
+        log_file.close()
 
 
 if __name__ == "__main__":

@@ -43,7 +43,9 @@ class LocalRepository(private val context: Context) {
 
     fun apiKey(): String = secrets.getString("api_key", "").orEmpty()
     fun saveApiKey(value: String) {
-        if (value.isNotBlank()) secrets.edit().putString("api_key", value.trim()).apply()
+        val editor = secrets.edit()
+        if (value.isBlank()) editor.remove("api_key") else editor.putString("api_key", value.trim())
+        check(editor.commit()) { "Не удалось сохранить API-ключ" }
     }
 
     suspend fun importAvatar(uri: Uri): String? = withContext(Dispatchers.IO) {
