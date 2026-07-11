@@ -9,7 +9,7 @@ from generation import (
 )
 from images import avatar_html, get_chat_avatar, image_to_base64, render_text_with_mentions
 from state import get_active_world, get_character, initialize_state
-from storage import new_id, save_data
+from storage import new_id, save_api_key, save_data
 from ui.styles import apply_styles
 
 
@@ -430,8 +430,12 @@ def render_api_connection():
             config["api_key"] = api_key.strip()
             config["model_name"] = model_name.strip()
 
-            save_data()
-            st.success("Настройки сохранены.")
+            try:
+                save_api_key(api_key)
+                save_data()
+                st.success("Настройки и API-ключ сохранены.")
+            except RuntimeError as error:
+                st.error(str(error))
 
     with st.container(border=True):
         st.subheader("🧪 Проверка соединения")

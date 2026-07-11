@@ -6,6 +6,8 @@ import shutil
 import uuid
 
 import streamlit as st
+import keyring
+from keyring.errors import KeyringError
 
 from config import (
     BACKUP_FILE,
@@ -15,6 +17,10 @@ from config import (
     DEFAULT_API_CONFIG,
     DEFAULT_USER_PROFILE,
 )
+
+
+KEYRING_SERVICE = "stat_us life"
+KEYRING_USERNAME = "openai-compatible-api-key"
 
 
 def new_id(prefix):
@@ -31,6 +37,30 @@ def load_data():
         return data if isinstance(data, dict) else None
     except (json.JSONDecodeError, OSError):
         return None
+
+
+def load_api_key():
+    """Loads the API key from the operating system credential storage."""
+    try:
+        return keyring.get_password(KEYRING_SERVICE, KEYRING_USERNAME) or ""
+    except KeyringError:
+        return ""
+
+
+def save_api_key(value):
+    """Stores the API key outside the application JSON."""
+    try:
+        if value.strip():
+            keyring.set_password(KEYRING_SERVICE, KEYRING_USERNAME, value.strip())
+        else:
+            try:
+                keyring.delete_password(KEYRING_SERVICE, KEYRING_USERNAME)
+            except KeyringError:
+                pass
+    except KeyringError as error:
+        raise RuntimeError(
+            "Не удалось сохранить API-ключ в защищённом хранилище Windows."
+        ) from error
 
 
 def save_data():

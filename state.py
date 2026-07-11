@@ -3,7 +3,7 @@ import copy
 import streamlit as st
 
 from config import DEFAULT_API_CONFIG, DEFAULT_STATE, DEFAULT_USER_PROFILE
-from storage import load_data, migrate_data, normalize_loaded_data, save_data
+from storage import load_api_key, load_data, migrate_data, normalize_loaded_data, save_data
 
 
 def initialize_state():
@@ -21,6 +21,7 @@ def initialize_state():
             st.session_state["user_profile"] = copy.deepcopy(DEFAULT_USER_PROFILE)
             st.session_state["worlds"] = []
             st.session_state["api_config"] = copy.deepcopy(DEFAULT_API_CONFIG)
+        st.session_state["api_config"]["api_key"] = load_api_key()
         migrate_data()
         save_data()
         st.session_state["data_loaded"] = True

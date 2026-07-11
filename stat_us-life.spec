@@ -3,10 +3,12 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 streamlit_datas, streamlit_binaries, streamlit_hidden = collect_all("streamlit")
 webview_datas, webview_binaries, webview_hidden = collect_all("webview")
+keyring_datas, keyring_binaries, keyring_hidden = collect_all("keyring")
 
 hidden_imports = list(dict.fromkeys(
     streamlit_hidden
     + webview_hidden
+    + keyring_hidden
     + collect_submodules("altair")
     + collect_submodules("pyarrow")
     + [
@@ -25,8 +27,8 @@ hidden_imports = list(dict.fromkeys(
 a = Analysis(
     ["desktop.py"],
     pathex=["."],
-    binaries=streamlit_binaries + webview_binaries,
-    datas=streamlit_datas + webview_datas + [("app.py", ".")],
+    binaries=streamlit_binaries + webview_binaries + keyring_binaries,
+    datas=streamlit_datas + webview_datas + keyring_datas + [("app.py", ".")],
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

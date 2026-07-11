@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version, for example A.0.3.2
+        description: Release version, for example A.0.3.3
         required: true
-        default: A.0.3.2
+        default: A.0.3.3
   push:
     tags:
       - "A.*"
@@ -78,10 +78,10 @@ jobs:
       - name: Create inspectable source ZIP
         shell: pwsh
         run: |
-          git archive --format=zip --prefix="StatUsLife-A.0.3.2/" --output="release/StatUsLife-Source-A.0.3.2.zip" HEAD
+          git archive --format=zip --prefix="StatUsLife-A.0.3.3/" --output="release/StatUsLife-Source-A.0.3.3.zip" HEAD
           $forbidden = @('.exe', '.dll', '.pyd', '.pyc', '.apk', '.jks', '.keystore')
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $archive = [System.IO.Compression.ZipFile]::OpenRead("release/StatUsLife-Source-A.0.3.2.zip")
+          $archive = [System.IO.Compression.ZipFile]::OpenRead("release/StatUsLife-Source-A.0.3.3.zip")
           try {
             $bad = @($archive.Entries | Where-Object {
               $name = $_.FullName.ToLowerInvariant()
@@ -100,7 +100,7 @@ jobs:
           name: StatUsLife-Windows
           path: |
             release/StatUsLife-Setup.exe
-            release/StatUsLife-Source-A.0.3.2.zip
+            release/StatUsLife-Source-A.0.3.3.zip
 
       - name: Resolve release version
         id: version
@@ -121,7 +121,7 @@ jobs:
           prerelease: true
           files: |
             release/StatUsLife-Setup.exe
-            release/StatUsLife-Source-A.0.3.2.zip
+            release/StatUsLife-Source-A.0.3.3.zip
 
   publish-android:
     name: Add Android APK to release

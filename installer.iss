@@ -1,5 +1,5 @@
 #define MyAppName "stat_us life"
-#define MyAppVersion "A.0.3.2"
+#define MyAppVersion "A.0.3.3"
 #define MyAppPublisher "Esklif"
 #define MyAppExeName "stat_us-life.exe"
 
