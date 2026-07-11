@@ -1,4 +1,6 @@
 .venv/
+.build-venv/
+.agents/
 __pycache__/
 *.py[cod]
 
@@ -13,3 +15,22 @@ fandom_data.json.tmp
 
 # Local distribution archives
 *.zip
+
+# Desktop build output
+build/
+dist/
+release/
+
+# Android and Gradle
+android/.gradle/
+android/local.properties
+android/**/build/
+android/captures/
+android/.idea/
+android/.kotlin/
+android/.externalNativeBuild/
+android/.cxx/
+*.jks
+*.keystore
+keystore.properties
+signing.properties

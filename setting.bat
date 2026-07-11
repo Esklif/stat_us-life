@@ -8,20 +8,20 @@ echo ========================================
 echo.
 
 where py >nul 2>nul
-if %errorlevel%==0 (
+if not errorlevel 1 (
     set "PYTHON=py"
     goto :python_ready
 )
 
 where python >nul 2>nul
-if %errorlevel%==0 (
+if not errorlevel 1 (
     set "PYTHON=python"
     goto :python_ready
 )
 
 echo Python is not installed.
 where winget >nul 2>nul
-if not %errorlevel%==0 (
+if errorlevel 1 (
     echo Install Python 3.11 or newer from https://www.python.org/downloads/
     echo During installation, enable "Add Python to PATH".
     pause
@@ -30,7 +30,7 @@ if not %errorlevel%==0 (
 
 echo Installing Python with Windows Package Manager...
 winget install --id Python.Python.3.12 -e --source winget --accept-package-agreements --accept-source-agreements
-if not %errorlevel%==0 (
+if errorlevel 1 (
     echo Python installation failed.
     pause
     exit /b 1
@@ -43,7 +43,7 @@ exit /b 0
 
 :python_ready
 %PYTHON% --version
-if not %errorlevel%==0 (
+if errorlevel 1 (
     echo Python could not be started.
     pause
     exit /b 1
@@ -58,7 +58,7 @@ if not exist "requirements.txt" (
 if not exist ".venv\Scripts\python.exe" (
     echo Creating virtual environment...
     %PYTHON% -m venv .venv
-    if not %errorlevel%==0 (
+    if errorlevel 1 (
         echo Could not create the virtual environment.
         pause
         exit /b 1
@@ -67,7 +67,7 @@ if not exist ".venv\Scripts\python.exe" (
 
 echo Updating pip...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
-if not %errorlevel%==0 (
+if errorlevel 1 (
     echo Could not update pip.
     pause
     exit /b 1
@@ -75,7 +75,7 @@ if not %errorlevel%==0 (
 
 echo Installing project dependencies...
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt
-if not %errorlevel%==0 (
+if errorlevel 1 (
     echo Dependency installation failed.
     pause
     exit /b 1

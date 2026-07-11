@@ -1,0 +1,147 @@
+name: Build release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version, for example A.0.3
+        required: true
+        default: A.0.3
+  push:
+    tags:
+      - "A.*"
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Clean, lint, test and build Android project
+        working-directory: android
+        run: gradle --no-daemon clean lintDebug testDebugUnitTest assembleDebug
+      - name: Name Android artifact
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk StatUsLife-Android-debug.apk
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: StatUsLife-Android-debug
+          path: StatUsLife-Android-debug.apk
+
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r build-requirements.txt
+
+      - name: Check Python modules
+        run: python -m compileall -q app.py desktop.py config.py storage.py images.py api_client.py generation.py crowd.py state.py ui
+
+      - name: Build portable application
+        run: python -m PyInstaller --noconfirm --clean stat_us-life.spec
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss'
+
+      - name: Create inspectable source ZIP
+        shell: pwsh
+        run: |
+          git archive --format=zip --prefix="StatUsLife-A.0.3/" --output="release/StatUsLife-Source-A.0.3.zip" HEAD
+          $forbidden = @('.exe', '.dll', '.pyd', '.pyc', '.apk', '.jks', '.keystore')
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [System.IO.Compression.ZipFile]::OpenRead("release/StatUsLife-Source-A.0.3.zip")
+          try {
+            $bad = @($archive.Entries | Where-Object {
+              $name = $_.FullName.ToLowerInvariant()
+              ($forbidden | Where-Object { $name.EndsWith($_) }).Count -gt 0 -or
+              $name -match '(^|/)(fandom_data\.json(?:\.bak)?|\.env|local\.properties)$' -or
+              $name -match '(^|/)(build|dist|release|\.venv|\.build-venv|\.agents|__pycache__)/'
+            })
+            if ($bad) { throw "Source ZIP contains forbidden files: $($bad.FullName -join ', ')" }
+          } finally {
+            $archive.Dispose()
+          }
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: StatUsLife-Windows
+          path: |
+            release/StatUsLife-Setup.exe
+            release/StatUsLife-Source-A.0.3.zip
+
+      - name: Resolve release version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            "value=${{ inputs.version }}" >> $env:GITHUB_OUTPUT
+          } else {
+            "value=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.value }}
+          name: stat_us life ${{ steps.version.outputs.value }}
+          generate_release_notes: true
+          prerelease: true
+          files: |
+            release/StatUsLife-Setup.exe
+            release/StatUsLife-Source-A.0.3.zip
+
+  publish-android:
+    name: Add Android APK to release
+    needs: [android, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: StatUsLife-Android-debug
+      - name: Resolve release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Attach unsigned debug APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.value }}
+          files: StatUsLife-Android-debug.apk

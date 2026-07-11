@@ -1,87 +1,198 @@
-# stat_us life
+# stat_us life A.0.3
 
-`stat_us life` is an alpha version of a local role-playing social network built with Python and Streamlit.
+`stat_us life` — альфа-версия локальной ролевой социальной сети для Windows и Android. В приложении можно создавать отдельные вымышленные миры, персонажей и публикации, вести переписки и получать контекстные реакции через OpenAI-совместимый API.
 
-Create separate fictional worlds, add characters with distinct personalities, publish posts, write comments, and exchange private messages. An OpenAI-compatible API allows characters to generate contextual reactions while staying in character.
+## Возможности
 
-## Features
+- создание, редактирование и удаление ролевых миров;
+- отдельный профиль игрока внутри каждого мира;
+- персонажи с аватарами, биографией, характером и стилем речи;
+- общая лента с постами, комментариями, отметками «нравится», упоминаниями и репостами;
+- личные сообщения с персонажами;
+- постоянные фоновые аккаунты массовки с настраиваемой активностью;
+- генерация реакций через OpenAI-совместимый API;
+- локальное хранение данных без обязательного аккаунта или облачного сервера;
+- нативное автономное приложение Android;
+- Windows-приложение в отдельном окне на базе Streamlit и pywebview.
 
-- Create, edit, and delete fictional worlds.
-- Create and edit a separate player profile for each world.
-- Add, edit, and delete characters with avatars and detailed personas.
-- Publish posts in a shared world feed.
-- Generate character posts and comments through an OpenAI-compatible API.
-- Comment on posts, mention participants with `@name`, like posts, and make reposts.
-- Exchange private messages with characters.
-- Store all local data on the user's computer.
-- Start with a clean database automatically on first launch.
+## Скачать A.0.3
 
-## Requirements
+В GitHub Releases публикуются три основных файла.
 
-- Windows 10 or Windows 11
-- Internet access for the initial installation and AI features
-- An OpenAI-compatible API endpoint, key, and model for AI-generated reactions
+### Windows Setup
 
-Python and project dependencies can be installed automatically by `setting.bat`.
+`StatUsLife-Setup.exe` — готовый установщик для Windows 10/11 x64.
 
-## Quick Start
+- Python устанавливать отдельно не требуется.
+- Приложение открывается в отдельном окне.
+- Установщик создаёт ярлык в меню «Пуск» и по выбору на рабочем столе.
 
-1. Download and extract the project archive, or clone this repository.
-2. Run `setting.bat`.
-3. Wait for Python, the virtual environment, and dependencies to be installed.
-4. Run `start.bat`.
-5. Open the address displayed in the terminal, usually `http://localhost:8501`.
+### Проверяемый архив исходников
 
-If Python is installed during setup, close the setup window and run `setting.bat` one more time before starting the application.
+`StatUsLife-Source-A.0.3.zip` содержит исходный код, сценарии установки и конфигурации сборки. В архив намеренно не включаются EXE, DLL, APK, PYC, виртуальные окружения, каталоги сборки, пользовательские данные, секреты и локальные пути Android SDK.
 
-## Manual Installation
+После распаковки можно проверить код, запустить `setting.bat`, а затем `start.bat`.
+
+### Android APK
+
+`StatUsLife-Android-debug.apk` — автономное нативное Android-приложение. Для работы интерфейса не нужны компьютер, Streamlit-сервер или встроенный Python.
+
+APK является debug-сборкой и не предназначен для Google Play. Для установки потребуется разрешить установку приложений из выбранного браузера или файлового менеджера.
+
+## Установка Windows
+
+1. Скачайте `StatUsLife-Setup.exe` из релиза A.0.3.
+2. Запустите установщик.
+3. Завершите мастер установки.
+4. Откройте `stat_us life` из меню «Пуск» или через ярлык.
+
+Пользовательские данные настольной сборки хранятся отдельно от программы:
+
+```text
+%LOCALAPPDATA%\stat_us life\
+```
+
+Обновление или удаление программы не смешивает данные с файлами установки. Перед экспериментами с альфа-версиями рекомендуется сохранить резервную копию данных вручную.
+
+## Установка Android
+
+1. Скачайте `StatUsLife-Android-debug.apk` на устройство с Android 8.0 или новее.
+2. Откройте APK в браузере или файловом менеджере.
+3. При необходимости разрешите этому приложению установку из неизвестного источника.
+4. Подтвердите установку и запустите `stat_us life`.
+
+Android-версия хранит миры, профили, персонажей, публикации, комментарии, репосты, массовку, сообщения и копии аватаров в закрытом хранилище приложения. Автоматическое резервное копирование Android отключено. Удаление приложения обычно удаляет и эти данные.
+
+## Безопасность неподписанных сборок
+
+Windows Setup пока не подписан коммерческим сертификатом. Microsoft Defender SmartScreen может показать предупреждение. Проверяйте источник загрузки и SHA-256 опубликованного файла перед запуском.
+
+Android APK подписан стандартным отладочным ключом среды сборки. Это не производственная подпись и не гарантия происхождения. Не устанавливайте файл из сторонних источников и сверяйте контрольную сумму релиза.
+
+В репозитории и релизных архивах не должны находиться API-ключи, keystore, пароли, пользовательские JSON-файлы или локальные пути SDK.
+
+## Настройка API
+
+Откройте глобальный профиль и укажите:
+
+- URL OpenAI-совместимого API, например `https://api.openai.com/v1`;
+- API-ключ;
+- название доступной модели.
+
+Windows-версия также принимает ключ через переменную среды:
+
+```powershell
+$env:OPENAI_API_KEY="your-api-key"
+.\start.bat
+```
+
+Ключ не записывается в `fandom_data.json`. На Android он хранится отдельно в зашифрованных preferences. Для внешних API рекомендуется HTTPS: при использовании HTTP ключ и содержимое запросов могут быть перехвачены в сети.
+
+## Локальные данные
+
+При запуске из исходников Windows-версия использует файлы в корне проекта:
+
+- `fandom_data.json` — текущие миры и содержимое приложения;
+- `fandom_data.json.bak` — резервная копия предыдущего сохранения;
+- `fandom_data.json.tmp` — временный файл атомарной записи.
+
+Эти файлы исключены из Git и не входят в source ZIP. Не добавляйте их в коммиты и не отправляйте вместе с отчётами об ошибках без предварительной проверки содержимого.
+
+Windows и Android используют независимые форматы и каталоги хранения. Автоматической синхронизации между платформами нет.
+
+## Запуск Windows из исходников
+
+Автоматический вариант:
+
+1. Запустите `setting.bat`.
+2. Дождитесь создания `.venv` и установки зависимостей.
+3. Запустите `start.bat`.
+
+Ручной вариант:
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
-## API Setup
+`start-mobile.bat` открывает адаптивный веб-интерфейс в локальной сети. Этот режим не является автономным мобильным приложением: компьютер должен оставаться включённым, а телефон — иметь доступ к тому же серверу.
 
-Open **Global Profile** in the application and enter:
+## Сборка Windows
 
-- an OpenAI-compatible API URL;
-- an API key;
-- a model name.
-
-The API key is not written to `fandom_data.json`. It can also be supplied through the `OPENAI_API_KEY` environment variable:
+Для локальной сборки установщика запустите:
 
 ```powershell
-$env:OPENAI_API_KEY="your-api-key"
-start.bat
+.\build-desktop.bat
 ```
 
-Never commit API keys or send them with the project.
+Сценарий создаёт изолированное окружение `.build-venv`, собирает приложение через PyInstaller и формирует `release\StatUsLife-Setup.exe` через Inno Setup. Каталоги `.build-venv`, `build`, `dist` и `release` являются локальными артефактами и исключены из Git.
 
-## Local Data
+## Сборка Android
 
-The application creates `fandom_data.json` automatically. This file contains local worlds, profiles, characters, posts, reposts, and private messages.
+Требования:
 
-The following local files are excluded from Git:
+- JDK 17;
+- Android SDK с API 35;
+- Gradle 8.9.
 
-- `fandom_data.json`
-- `fandom_data.json.bak`
-- `.venv/`
-- `.env`
-- `.streamlit/secrets.toml`
+В текущем дереве есть launcher-файлы `gradlew` и `gradlew.bat`, но без `android/gradle/wrapper/gradle-wrapper.jar` wrapper не является полностью автономным. GitHub Actions устанавливает Gradle 8.9 отдельно. Локально можно выполнить:
 
-Cloning the repository therefore provides a clean installation without another user's personal data.
+```powershell
+$env:JAVA_HOME="путь-к-jdk-17"
+$env:ANDROID_HOME="путь-к-android-sdk"
+& "C:\путь\к\gradle-8.9\bin\gradle.bat" --no-daemon clean lintDebug testDebugUnitTest assembleDebug
+```
 
-## Project Files
+Готовый APK создаётся в `android\app\build\outputs\apk\debug\app-debug.apk`.
 
-- `app.py`: application code.
-- `setting.bat`: automated Windows setup.
-- `start.bat`: application launcher.
-- `requirements.txt`: Python dependencies.
-- `.gitignore`: excludes personal data, secrets, and generated files.
+Если `gradle-wrapper.jar` будет добавлен из доверенной поставки Gradle 8.9, ту же сборку можно запускать через `android\gradlew.bat`.
 
-## Status
+## Публикация релиза
 
-This project is an alpha version. Back up `fandom_data.json` before testing major changes.
+Workflow `.github/workflows/release.yml` запускается для тегов `A.*`, сохраняет совместимость с тегами `v*` и может быть запущен вручную. Значение по умолчанию — `A.0.3`.
+
+Для релиза A.0.3:
+
+```powershell
+git tag A.0.3
+git push origin A.0.3
+```
+
+Workflow выполняет Android lint и unit tests, собирает debug APK, собирает Windows Setup и создаёт проверяемый source ZIP. В GitHub Release публикуются:
+
+- `StatUsLife-Setup.exe`;
+- `StatUsLife-Source-A.0.3.zip` без скомпилированных файлов;
+- `StatUsLife-Android-debug.apk`;
+- стандартные архивы исходников, автоматически создаваемые GitHub.
+
+## Структура проекта
+
+- `app.py` — минимальная точка входа Streamlit.
+- `desktop.py` — локальный Streamlit-сервер и окно pywebview.
+- `config.py` — пути, ограничения и значения по умолчанию.
+- `storage.py` — загрузка, миграция и атомарное сохранение данных.
+- `state.py` — инициализация состояния сеанса и поиск активных объектов.
+- `api_client.py` — транспорт OpenAI-совместимого API.
+- `generation.py` — промпты и генерация реакций персонажей.
+- `crowd.py` — фоновые аккаунты и их комментарии.
+- `images.py` — проверка и преобразование аватаров.
+- `ui/` — интерфейс Streamlit и стили.
+- `android/` — нативное приложение Kotlin и Jetpack Compose.
+- `stat_us-life.spec` — конфигурация PyInstaller.
+- `installer.iss` — конфигурация Inno Setup версии A.0.3.
+- `build-desktop.bat` — локальная Windows-сборка.
+- `setting.bat`, `start.bat`, `start-mobile.bat` — установка и запуск из исходников.
+- `.github/workflows/release.yml` — сборка и публикация релизных артефактов.
+
+## Ограничения альфа-версии
+
+- Форматы данных ещё могут изменяться; сохраняйте резервные копии.
+- Нет облачной синхронизации, общего аккаунта и совместного режима.
+- Нет push-уведомлений и автоматического фонового планировщика.
+- Качество и стоимость генерации зависят от выбранного API и модели.
+- Сетевые запросы отправляют выбранному API тексты, необходимые для генерации.
+- Windows Setup не подписан сертификатом издателя.
+- Android распространяется как debug APK, а не как production-signed или Play Store build.
+- Данные Windows и Android автоматически не синхронизируются.
