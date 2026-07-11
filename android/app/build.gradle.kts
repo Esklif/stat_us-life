@@ -13,8 +13,8 @@ android {
         applicationId = "life.status.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "A.0.3.1"
+        versionCode = 5
+        versionName = "A.0.3.2"
     }
 
     buildTypes {

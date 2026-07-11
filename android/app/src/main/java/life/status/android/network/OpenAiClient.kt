@@ -22,29 +22,61 @@ class OpenAiClient {
     private val json = Json { ignoreUnknownKeys = true }
     private val client = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(45, TimeUnit.SECONDS).build()
 
+    private fun endpointCandidates(proxyUrl: String): List<String> {
+        val baseUrl = proxyUrl.trim().trimEnd('/')
+        if (baseUrl.endsWith("/chat/completions")) return listOf(baseUrl)
+
+        return buildList {
+            add("$baseUrl/chat/completions")
+            if (!baseUrl.endsWith("/v1")) {
+                add("$baseUrl/v1/chat/completions")
+            }
+        }.distinct()
+    }
+
     suspend fun chat(settings: ApiSettings, key: String, messages: List<ChatMessage>, maxTokens: Int = 300): String = withContext(Dispatchers.IO) {
         require(key.isNotBlank()) { "API-ключ не задан" }
         require(settings.proxyUrl.startsWith("https://") || settings.proxyUrl.startsWith("http://")) { "Некорректный URL API" }
         val body = json.encodeToString(ChatRequest.serializer(), ChatRequest(settings.modelName, messages, maxTokens))
-        val baseUrl = settings.proxyUrl.trim().trimEnd('/')
-        val endpoint = if (baseUrl.endsWith("/chat/completions")) baseUrl else "$baseUrl/chat/completions"
-        val request = Request.Builder()
-            .url(endpoint)
-            .header("Authorization", "Bearer $key")
-            .post(body.toRequestBody("application/json".toMediaType()))
-            .build()
-        client.newCall(request).execute().use { response ->
-            val result = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                val details = result.replace(Regex("\\s+"), " ").trim().take(300)
-                throw IOException(
-                    "Ошибка API HTTP ${response.code}" +
-                        if (details.isBlank()) "" else ": $details"
-                )
+
+        val endpoints = endpointCandidates(settings.proxyUrl)
+        var lastNotFound: String? = null
+
+        for (endpoint in endpoints) {
+            val request = Request.Builder()
+                .url(endpoint)
+                .header("Authorization", "Bearer $key")
+                .header("Content-Type", "application/json")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val result = response.body?.string().orEmpty()
+
+                if (response.code == 404) {
+                    lastNotFound = endpoint
+                    return@use
+                }
+
+                if (!response.isSuccessful) {
+                    val details = result.replace(Regex("\\s+"), " ").trim().take(300)
+                    throw IOException(
+                        "Ошибка API HTTP ${response.code} ($endpoint)" +
+                            if (details.isBlank()) "" else ": $details"
+                    )
+                }
+
+                if (result.isBlank()) error("Пустой ответ API ($endpoint)")
+                return@withContext json.decodeFromString<ChatResponse>(result)
+                    .choices.firstOrNull()?.message?.content?.trim()
+                    ?: error("Неожиданный ответ API ($endpoint)")
             }
-            if (result.isBlank()) error("Пустой ответ API")
-            json.decodeFromString<ChatResponse>(result).choices.firstOrNull()?.message?.content?.trim()
-                ?: error("Неожиданный ответ API")
         }
+
+        throw IOException(
+            "API вернул HTTP 404. Проверены адреса: ${endpoints.joinToString()}. " +
+                "Укажите базовый URL вида https://host/v1 либо полный адрес /chat/completions. " +
+                "Последний адрес: ${lastNotFound.orEmpty()}"
+        )
     }
 }
