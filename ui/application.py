@@ -3,6 +3,7 @@ import streamlit as st
 from api_client import call_api
 from crowd import add_crowd_activity, ensure_crowd_accounts
 from generation import (
+    evaluate_player_action,
     generate_dm_reply,
     generate_reactions_to_user_comment,
     generate_reactions_to_user_post,
@@ -478,45 +479,47 @@ def render_global_app():
 # НАВИГАЦИЯ МИРА
 # =========================================================
 
-def render_world_sidebar(world):
-    with st.sidebar:
-        st.header(world["title"])
+def render_top_bar(world):
+    st.markdown('<div class="top-bar-container">', unsafe_allow_html=True)
+    day = st.session_state.get("current_day", 1)
 
-        st.caption(
-            world.get("description")
-            or "Описание мира отсутствует."
-        )
-
-        st.write("---")
-
-        pages = [
-            ("📰 Лента", "Лента"),
-            ("👤 Мой профиль", "Профиль"),
-            ("👥 Персонажи", "Персонажи"),
-            ("💌 Личные сообщения", "Сообщения"),
-            ("⚙️ Настройки мира", "Настройки")
-        ]
-
-        for button_label, page_name in pages:
-            if st.button(
-                button_label,
-                key=f"world_nav_{page_name}",
-                type="primary" if st.session_state["world_page"] == page_name else "secondary",
-                use_container_width=True
-            ):
-                st.session_state["world_page"] = page_name
-                st.rerun()
-
-        st.write("---")
-
-        if st.button(
-            "🚪 Выйти из мира",
-            use_container_width=True
-        ):
+    col1, col2, col3 = st.columns([3, 4, 1])
+    with col1:
+        st.markdown(f"**☀️ Day {day}**")
+    with col2:
+        st.write("")
+    with col3:
+        if st.button("🚪", key="exit_world"):
             st.session_state["active_world_id"] = None
             st.session_state["active_dm_character_id"] = None
             st.session_state["world_page"] = "Лента"
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_bottom_nav():
+    st.markdown('<div class="bottom-nav-container">', unsafe_allow_html=True)
+    col1, col2, col3, col4, col5 = st.columns(5)
+    pages = [
+        ("🏠", "Лента"),
+        ("🎯", "Цели"),
+        ("📅", "Расписание"),
+        ("🔔", "Уведомления"),
+        ("👤", "Профиль")
+    ]
+    cols = [col1, col2, col3, col4, col5]
+    for i, (icon, page_name) in enumerate(pages):
+        with cols[i]:
+            is_active = (st.session_state.get("world_page") == page_name)
+            if st.button(
+                icon,
+                key=f"nav_{page_name}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary"
+            ):
+                st.session_state["world_page"] = page_name
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =========================================================
@@ -1441,6 +1444,226 @@ def render_right_dm_sidebar(world):
 
 # =========================================================
 # ПРИЛОЖЕНИЕ АКТИВНОГО МИРА
+
+def process_gm_result(world, gm_result):
+    """Process the Game Master LLM response and update state."""
+    if not gm_result:
+        return
+
+    profile = world.setdefault("player_profile", {})
+
+    xp_awarded = gm_result.get("xp_awarded", 0)
+    if xp_awarded > 0:
+        profile["xp"] = profile.get("xp", 0) + xp_awarded
+        st.toast(f"✨ +{xp_awarded} XP")
+
+    while profile.get("xp", 0) >= profile.get("xp_to_next", 4):
+        profile["xp"] -= profile.get("xp_to_next", 4)
+        profile["level"] = profile.get("level", 1) + 1
+        profile["xp_to_next"] = int(profile["xp_to_next"] * 1.5)
+        st.toast(f"🎉 Level Up! You are now level {profile['level']}")
+
+    milestones = profile.get("milestones", [])
+    updates = gm_result.get("milestone_updates", {})
+    for m in milestones:
+        if m["title"] in updates:
+            m["progress"] = min(m["max"], m.get("progress", 0) + updates[m["title"]])
+            st.toast(f"🎯 Milestone updated: {m['title']}")
+
+    event = gm_result.get("random_event")
+    if event:
+        st.session_state["active_event"] = event
+
+    schedule = st.session_state.get("schedule", {})
+    for s in gm_result.get("schedule_updates", []):
+        day = st.session_state.get("current_day", 1)
+        schedule.setdefault(str(day), []).append(s)
+    st.session_state["schedule"] = schedule
+
+    notifications = st.session_state.get("notifications", [])
+    for n in gm_result.get("notifications", []):
+        notifications.insert(0, {"id": new_id("notif"), "text": n, "avatar": None})
+    st.session_state["notifications"] = notifications
+
+    save_data()
+
+
+def render_goals_screen(world):
+    profile = world.get("player_profile", {})
+    level = profile.get("level", 1)
+    xp = profile.get("xp", 0)
+    xp_to_next = profile.get("xp_to_next", 4)
+    goal = profile.get("current_goal", "Become famous")
+    milestones = profile.get("milestones", [])
+
+    st.markdown(
+        f"<h2>Level <span style='border:2px solid var(--gold); border-radius:50%;"
+        f" padding:0px 10px; color:var(--gold);'>{level}</span>"
+        f" ⬆️ <span style='float:right'>⏳ {level}</span></h2>",
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        f"<p style='color:var(--gold)'>✨ {xp} / {xp_to_next} xp to next level</p>",
+        unsafe_allow_html=True
+    )
+
+    with st.container(border=True):
+        st.markdown(
+            "<div style='background: linear-gradient(135deg, #472d73, #1e133c);"
+            " padding: 15px; border-radius: var(--radius);'>",
+            unsafe_allow_html=True
+        )
+        st.markdown(f"**🎯 Current goal:**")
+        st.markdown(f"<h3>{goal}</h3>", unsafe_allow_html=True)
+        pct = int((xp / xp_to_next) * 100) if xp_to_next > 0 else 100
+        st.markdown(
+            f"<div style='background: rgba(255,255,255,0.1); border-radius: 10px; height: 20px;'>"
+            f"<div style='background: var(--danger); width: {pct}%; height: 100%;"
+            f" border-radius: 10px; text-align: center; font-size: 12px;"
+            f" color: white; line-height: 20px;'>{pct}%</div></div>",
+            unsafe_allow_html=True
+        )
+        st.button("⚙️ Customize", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.button("📒 Actions log", use_container_width=True)
+    with c2:
+        st.button("📦 Inventory", use_container_width=True)
+
+    st.markdown("### 🚀 Milestones")
+
+    with st.container(border=True):
+        st.markdown(
+            "<h4 style='text-align:center;'>First Footprint ⭐</h4>",
+            unsafe_allow_html=True
+        )
+        for m in milestones:
+            filled = min(m.get("progress", 0), m["max"])
+            st.markdown(
+                f"<div style='display:flex; justify-content:space-between;'>"
+                f"<b>{m['title']}</b>"
+                f" <span style='color:var(--danger)'>{filled} / {m['max']}"
+                f" {'✅' if filled >= m['max'] else '❌'}</span></div>",
+                unsafe_allow_html=True
+            )
+            pct_m = int((filled / m["max"]) * 100) if m["max"] > 0 else 0
+            st.markdown(
+                f"<div style='background:var(--surface-soft); height:8px;"
+                f" border-radius:4px; margin-bottom:15px;'>"
+                f"<div style='background:var(--accent); width:{pct_m}%;"
+                f" height:100%; border-radius:4px;'></div></div>",
+                unsafe_allow_html=True
+            )
+        all_done = all(m.get("progress", 0) >= m["max"] for m in milestones) if milestones else False
+        st.button(
+            "Complete milestone 🔓" if all_done else "Complete milestone 🔒",
+            use_container_width=True,
+            disabled=not all_done
+        )
+
+
+def render_schedule_screen(world):
+    day = st.session_state.get("current_day", 1)
+    schedule = st.session_state.get("schedule", {})
+    today_events = schedule.get(str(day), [])
+
+    st.markdown(f"<h2>📅 Schedule — Day {day}</h2>", unsafe_allow_html=True)
+
+    if today_events:
+        for evt in today_events:
+            with st.container(border=True):
+                st.markdown(
+                    f"<div style='text-align:center; color:var(--gold);'>{evt.get('time', '')}</div>"
+                    f"<div style='text-align:center; font-weight:bold; font-size:18px;'>"
+                    f"{evt.get('title', 'Event')}</div>",
+                    unsafe_allow_html=True
+                )
+    else:
+        st.info("Nothing planned for today.")
+
+    st.warning("⚠️ Early experimental feature — may not work perfectly yet")
+
+    for i in range(1, 9):
+        st.markdown(
+            f"<div style='display:flex; align-items:center; margin-bottom: 10px;'>"
+            f"<div style='width:50px; font-weight:bold; font-size:18px;"
+            f" color:var(--text);'>☀️ {i}</div>"
+            f"<div style='flex-grow:1; border:1px dashed var(--text-soft);"
+            f" border-radius:var(--radius); padding:10px;"
+            f" color:var(--text-soft);'>Nothing planned.</div></div>",
+            unsafe_allow_html=True
+        )
+
+
+def render_notifications_screen(world):
+    st.markdown(
+        "<h2 style='text-align:center;'>🔔 Notifications</h2>",
+        unsafe_allow_html=True
+    )
+    st.write("---")
+
+    notifications = st.session_state.get("notifications", [])
+    if not notifications:
+        st.info("No notifications yet.")
+        return
+
+    for notif in notifications:
+        col1, col2 = st.columns([1, 5])
+        with col1:
+            st.markdown(
+                avatar_html(notif.get("avatar"), size=45, fallback="👤"),
+                unsafe_allow_html=True
+            )
+        with col2:
+            text = notif.get("text", "")
+            st.markdown(f"**{text}**")
+        st.write("---")
+
+    st.markdown(
+        "<p style='text-align:center; color:var(--text-soft);'>That's everything!</p>",
+        unsafe_allow_html=True
+    )
+
+
+def render_event_modal(world):
+    active_event = st.session_state.get("active_event")
+    if not active_event:
+        return
+
+    with st.container(border=True):
+        st.markdown(
+            "<div style='background: linear-gradient(135deg, #8B0000, #4a0000);"
+            " padding: 20px; border-radius: var(--radius); text-align: center;'>",
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            f"<h3>{active_event.get('text', active_event.get('title', 'Event!'))}</h3>",
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f"<div style='background:rgba(255,255,255,0.1); border-radius: 20px;"
+            f" padding: 5px; color: var(--gold); display:inline-block; margin: 10px 0;'>"
+            f"+ {active_event.get('xp_min', 2)} - {active_event.get('xp_max', 3)} xp"
+            f" ✨</div>",
+            unsafe_allow_html=True
+        )
+
+        with st.form("event_reaction_form", clear_on_submit=True):
+            reaction = st.text_area("How do you react?", label_visibility="collapsed")
+            submitted = st.form_submit_button("Submit", type="primary", use_container_width=True)
+
+        st.button("💡 Give me ideas", key="event_ideas", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    if submitted and reaction.strip():
+        st.session_state["active_event"] = None
+        st.rerun()
+
+
+
 # =========================================================
 
 def render_world_main_content(world):
@@ -1459,13 +1682,26 @@ def render_world_main_content(world):
         st.title("💌 Личные сообщения")
         render_right_dm_sidebar(world)
 
+    elif page == "Цели":
+        render_goals_screen(world)
+
+    elif page == "Расписание":
+        render_schedule_screen(world)
+
+    elif page == "Уведомления":
+        render_notifications_screen(world)
+
     else:
         render_feed(world)
 
 
 def render_world_app(world):
-    render_world_sidebar(world)
+    render_event_modal(world)
+    st.markdown('<div class="main-scroll-area">', unsafe_allow_html=True)
+    render_top_bar(world)
     render_world_main_content(world)
+    render_bottom_nav()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # =========================================================

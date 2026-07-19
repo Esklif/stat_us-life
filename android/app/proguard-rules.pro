@@ -1,4 +1,0 @@
--keepattributes *Annotation*
--keepclassmembers class **$$serializer { *; }
--keep,includedescriptorclasses class life.status.android.data.**$$serializer { *; }
--dontwarn org.conscrypt.**
