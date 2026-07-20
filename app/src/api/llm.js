@@ -139,7 +139,8 @@ export async function simulateBackgroundActivity(world) {
   const recentPosts = (world.posts || []).slice(0, 5).map(p => ({
     id: p.id,
     author: p.author.handle,
-    text: p.text
+    text: p.text,
+    replies: (p.replies || []).map(r => `${r.handle}: ${r.reply}`)
   }));
   const systemPrompt = `${apiSettings.systemPrompt}
 You are managing the background simulation. Time has passed, and characters might want to do something.
@@ -147,7 +148,9 @@ World: ${world.name} - ${world.description}
 World Characters: ${JSON.stringify(world.relationships)}
 Recent Posts: ${JSON.stringify(recentPosts)}
 
-Generate spontaneous background activity. Characters can write new standalone posts, or comment on recent posts. 
+Generate spontaneous background activity. Characters can write new standalone posts, or comment on recent posts. It is highly encouraged to generate at least 1-2 new posts or comments.
+- If ANY post or reply in Recent Posts explicitly mentions a character via @handle, that character MUST reply in newComments.
+- IMPORTANT: When characters address the player or each other, they MUST use the @ symbol before their handle (e.g. @alex_88), or use their real name.
 IMPORTANT: All text MUST be in Russian language.
 
 Output JSON ONLY with exact structure:
@@ -175,6 +178,8 @@ IMPORTANT: All text MUST be in Russian language.
 
 Generate immediate reactions (COMMENTS) from characters and random users. 
 These are comments ON THE POST, NOT standalone feed posts.
+- If the post explicitly @mentions a character by their handle, that character MUST reply in characterReactions.
+- IMPORTANT: When characters address the player or each other, they MUST use the @ symbol before their handle (e.g. @alex_88), or use their real name.
 Output JSON ONLY with exact structure:
 {
   "characterReactions": [
@@ -208,6 +213,9 @@ ${JSON.stringify(activeQuests)}
 - You MUST ONLY award "xpGained" (e.g. 100-200) if at least one quest is completed. If NO quests are completed, "xpGained" MUST be 0.
 - Ensure the number of current active quests minus completed quests plus "newQuests" equals EXACTLY 3. If the user has fewer than 3, generate enough to reach 3.
 
+- If the user explicitly @mentions a character by their handle, that character MUST reply or be affected in some way.
+- IMPORTANT: When characters address the player or each other, they MUST use the @ symbol before their handle (e.g. @alex_88), or use their real name.
+
 Output JSON ONLY with exact structure:
 {
   "xpGained": 15,
@@ -225,7 +233,14 @@ Output JSON ONLY with exact structure:
     { "questName": "Новый квест", "description": "Описание нового квеста" }
   ],
   "newPostsFromCharacters": [
-    { "handle": "handle", "name": "Имя", "text": "САМОСТОЯТЕЛЬНЫЙ пост в ленту (не ответ!). Пишут о себе, своем лоре, реакция на мир. НЕ обращайся к игроку напрямую." }
+    { 
+       "handle": "handle", 
+       "name": "Имя", 
+       "text": "САМОСТОЯТЕЛЬНЫЙ пост в ленту. Пишут о себе, лоре, реакция на мир.",
+       "replies": [
+          { "handle": "@random", "name": "Имя комментатора", "reply": "Коммент под постом NPC" }
+       ]
+    }
   ]
 }`;
   const userPrompt = `World Characters: ${JSON.stringify(world.relationships)}\nUser (@${userProfile.handle}) posted: "${postText}"\nEvaluate the impact and generate updates.`;

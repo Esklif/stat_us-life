@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import useStore from '../../store/useStore';
 import { generateWorldOnboarding } from '../../api/llm';
-import { Sun, Target, Swords } from 'lucide-react';
+import { Sun, Target, Swords, Image as ImageIcon } from 'lucide-react';
 
 const loadingPhrases = [
   "Установка нейронных связей...",
@@ -63,32 +63,70 @@ const LoadingScreen = () => {
 
 export default function WorldOnboarding({ world, onComplete }) {
   const { userProfile: defaultProfile, updateWorldData } = useStore();
-  const userProfile = world.userProfile || defaultProfile;
-  const [step, setStep] = useState(0); // 0: Bio, 1: Loading, 2: Day 1, 3: First Quest, 4: Skills
-  const [bio, setBio] = useState(userProfile.bio || '');
-  const [firstPostText, setFirstPostText] = useState('');
   
+  const [userProfile, setUserProfile] = useState(world.userProfile || defaultProfile);
+  const [npc, setNpc] = useState({ name: '', handle: '', avatar: '', bio: '' });
+  
+  const fileInputRef = useRef(null);
+  const charFileInputRef = useRef(null);
+
+  const handleImageUpload = (e, callback) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        callback(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const [step, setStep] = useState(0); 
+  // 0: Profile, 1: Bio, 2: Loading, 3: Day 1, 4: First NPC, 5: First Quest, 6: Skills
+  
+  const [firstPostText, setFirstPostText] = useState('');
   const [onboardingData, setOnboardingData] = useState(null);
   const [loadingError, setLoadingError] = useState(null);
 
   const handleCreateBio = async () => {
-    updateWorldData(world.id, w => ({ ...w, userProfile: { ...userProfile, bio } }));
-    setStep(1); // Loading
+    updateWorldData(world.id, w => ({ ...w, userProfile }));
+    setStep(2); // Loading
     try {
-      const data = await generateWorldOnboarding(world, { ...userProfile, bio });
+      const data = await generateWorldOnboarding(world, userProfile);
       setOnboardingData(data);
       setFirstPostText(data.firstQuestPostText || '');
-      setStep(2); // Day 1
+      setStep(3); // Day 1
     } catch (e) {
       setLoadingError(e.message);
-      setStep(0); // Go back to bio if failed
+      setStep(1); // Go back to bio if failed
     }
   };
 
   const handleFinish = () => {
-    // Add generated skills and quest to world
+    const newPosts = firstPostText.trim() ? [{
+      id: Date.now().toString(),
+      text: firstPostText,
+      author: userProfile,
+      type: 'post',
+      timestamp: new Date().toISOString(),
+      replies: [],
+      likes: 0,
+      isLiked: false,
+      retweets: 0,
+      isRetweeted: false
+    }] : [];
+
+    const newRelationships = npc.name.trim() ? [{
+      name: npc.name,
+      handle: npc.handle.replace('@', ''),
+      avatar: npc.avatar || null,
+      percentage: 50,
+      note: npc.bio || 'Ваш первый знакомый в этом мире.'
+    }] : [];
+
     updateWorldData(world.id, w => ({
       ...w,
+      userProfile,
       skills: onboardingData.skills || [],
       quests: [
         {
@@ -97,30 +135,47 @@ export default function WorldOnboarding({ world, onComplete }) {
           status: 'active'
         }
       ],
+      posts: [...newPosts, ...(w.posts || [])],
+      relationships: [...newRelationships, ...(w.relationships || [])],
       isInitialized: true
     }));
-    
-    // Add the first post to the feed automatically
-    if (firstPostText.trim()) {
-      updateWorldData(world.id, w => ({
-        ...w,
-        posts: [
-          {
-            id: Date.now().toString(),
-            text: firstPostText,
-            author: userProfile,
-            type: 'post',
-            timestamp: new Date().toISOString()
-          },
-          ...(w.posts || [])
-        ]
-      }));
-    }
     
     onComplete(onboardingData);
   };
 
   if (step === 0) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 200, display: 'flex', flexDirection: 'column', padding: '2rem', overflowY: 'auto' }}>
+        <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '2rem' }}>Настройка вашего профиля</h2>
+        <div className="flex-col gap-4">
+          <div className="flex-col gap-2 items-center">
+            <div className="avatar" style={{ width: 100, height: 100, border: '4px solid var(--surface-color)', cursor: 'pointer', backgroundColor: 'var(--surface-color)', position: 'relative' }} onClick={() => fileInputRef.current?.click()}>
+              {userProfile.avatar ? (
+                <img src={userProfile.avatar} alt="Avatar" style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%'}} />
+              ) : (
+                <ImageIcon size={32} color="var(--text-secondary)" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+              )}
+            </div>
+            <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={(e) => handleImageUpload(e, (res) => setUserProfile({...userProfile, avatar: res}))} />
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Нажмите, чтобы загрузить аватар</div>
+          </div>
+          <div>
+            <label className="input-label">Имя (псевдоним)</label>
+            <input className="input-field" value={userProfile.name} onChange={e => setUserProfile({...userProfile, name: e.target.value})} placeholder="Например: Алекс" />
+          </div>
+          <div>
+            <label className="input-label">Хэндл (без @)</label>
+            <input className="input-field" value={userProfile.handle} onChange={e => setUserProfile({...userProfile, handle: e.target.value.replace('@','')})} placeholder="alex_88" />
+          </div>
+        </div>
+        <button className="btn btn-primary mt-6" onClick={() => setStep(1)} disabled={!userProfile.name.trim() || !userProfile.handle.trim()}>
+          Далее
+        </button>
+      </div>
+    );
+  }
+
+  if (step === 1) {
     return (
       <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 200, display: 'flex', flexDirection: 'column', padding: '2rem' }}>
         <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '2rem' }}>Создание профиля</h2>
@@ -131,11 +186,11 @@ export default function WorldOnboarding({ world, onComplete }) {
         <textarea
           className="input-field flex-1"
           style={{ minHeight: '150px', fontSize: '1.1rem' }}
-          value={bio}
-          onChange={e => setBio(e.target.value)}
+          value={userProfile.bio}
+          onChange={e => setUserProfile({...userProfile, bio: e.target.value})}
           placeholder="Начинающий маг, люблю кошек..."
         />
-        <button className="btn btn-primary mt-4" onClick={handleCreateBio} disabled={!bio.trim()}>
+        <button className="btn btn-primary mt-4" onClick={handleCreateBio} disabled={!userProfile.bio.trim()}>
           Создать мир
         </button>
         {loadingError && <div style={{ color: 'var(--danger-color)', marginTop: '1rem', textAlign: 'center' }}>Ошибка: {loadingError}</div>}
@@ -143,13 +198,13 @@ export default function WorldOnboarding({ world, onComplete }) {
     );
   }
 
-  if (step === 1) {
+  if (step === 2) {
     return <LoadingScreen />;
   }
 
-  if (step === 2) {
+  if (step === 3) {
     return (
-      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 200, display: 'flex', flexDirection: 'column', padding: '2rem' }}>
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 200, display: 'flex', flexDirection: 'column', padding: '2rem', overflowY: 'auto' }}>
         <div className="flex-1 flex-col justify-center">
           <div className="flex items-center gap-2 mb-6" style={{ color: '#fbbf24', fontSize: '1.2rem', fontWeight: 'bold' }}>
             <Sun size={24} /> День 1
@@ -158,14 +213,53 @@ export default function WorldOnboarding({ world, onComplete }) {
             {onboardingData?.day1Intro}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setStep(3)}>
+        <button className="btn btn-primary" onClick={() => setStep(4)}>
           Далее
         </button>
       </div>
     );
   }
 
-  if (step === 3) {
+  if (step === 4) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 200, display: 'flex', flexDirection: 'column', padding: '2rem', overflowY: 'auto' }}>
+        <h2 style={{ textAlign: 'center', fontSize: '1.5rem', marginBottom: '1rem' }}>Ваш первый знакомый</h2>
+        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+          Создайте первого персонажа, с которым вы будете взаимодействовать.
+        </p>
+        <div className="flex-col gap-4 flex-1">
+          <div className="flex-col gap-2 items-center">
+            <div className="avatar" style={{ width: 100, height: 100, border: '4px solid var(--surface-color)', cursor: 'pointer', backgroundColor: 'var(--surface-color)', position: 'relative' }} onClick={() => charFileInputRef.current?.click()}>
+              {npc.avatar ? (
+                <img src={npc.avatar} alt="Avatar" style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%'}} />
+              ) : (
+                <ImageIcon size={32} color="var(--text-secondary)" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
+              )}
+            </div>
+            <input type="file" accept="image/*" ref={charFileInputRef} style={{ display: 'none' }} onChange={(e) => handleImageUpload(e, (res) => setNpc({...npc, avatar: res}))} />
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Нажмите, чтобы загрузить аватар</div>
+          </div>
+          <div>
+            <label className="input-label">Имя</label>
+            <input className="input-field" value={npc.name} onChange={e => setNpc({...npc, name: e.target.value})} placeholder="Например: Мастер" />
+          </div>
+          <div>
+            <label className="input-label">Хэндл (без @)</label>
+            <input className="input-field" value={npc.handle} onChange={e => setNpc({...npc, handle: e.target.value.replace('@','')})} placeholder="master_yoda" />
+          </div>
+          <div>
+            <label className="input-label">Кто это? (кратко)</label>
+            <input className="input-field" value={npc.bio} onChange={e => setNpc({...npc, bio: e.target.value})} placeholder="Мой наставник..." />
+          </div>
+        </div>
+        <button className="btn btn-primary mt-6" onClick={() => setStep(5)} disabled={!npc.name.trim() || !npc.handle.trim()}>
+          Продолжить
+        </button>
+      </div>
+    );
+  }
+
+  if (step === 5) {
     return (
       <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 200, display: 'flex', flexDirection: 'column', padding: '2rem' }}>
         <div className="flex-1 flex-col justify-center">
@@ -191,16 +285,16 @@ export default function WorldOnboarding({ world, onComplete }) {
             />
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setStep(4)}>
-          Понятно
+        <button className="btn btn-primary" onClick={() => setStep(6)}>
+          Опубликовать
         </button>
       </div>
     );
   }
 
-  if (step === 4) {
+  if (step === 6) {
     return (
-      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 200, display: 'flex', flexDirection: 'column', padding: '2rem' }}>
+      <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 200, display: 'flex', flexDirection: 'column', padding: '2rem', overflowY: 'auto' }}>
         <div className="flex-1 flex-col justify-center">
           <div className="flex items-center gap-2 mb-6" style={{ color: '#22c55e', fontSize: '1.2rem', fontWeight: 'bold' }}>
             <Swords size={24} /> Прокачивайте эти навыки
@@ -209,13 +303,19 @@ export default function WorldOnboarding({ world, onComplete }) {
             {(onboardingData?.skills || []).map((s, i) => (
               <div key={i} className="card p-4">
                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '4px' }}>{s.name}</div>
-                <div style={{ color: 'var(--text-secondary)' }}>{s.desc}</div>
+                <div style={{ 
+                  color: 'var(--text-secondary)',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 4,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}>{s.desc}</div>
               </div>
             ))}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={handleFinish}>
-          Начать!
+        <button className="btn btn-primary mt-6" onClick={handleFinish}>
+          Начать игру!
         </button>
       </div>
     );

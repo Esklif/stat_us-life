@@ -60,7 +60,7 @@ export default function ComposeModal({ world, userProfile, onClose, onPost }) {
             <X size={24} />
           </button>
           <button 
-            onPointerDown={handlePost} 
+            onClick={handlePost} 
             style={{ 
               background: postText.trim() ? '#ffffff' : 'rgba(255,255,255,0.25)', 
               color: postText.trim() ? '#000' : 'rgba(0,0,0,0.5)', 
@@ -73,7 +73,7 @@ export default function ComposeModal({ world, userProfile, onClose, onPost }) {
               transition: 'all 0.2s ease'
             }}
           >
-            Post
+            Опубликовать
           </button>
         </div>
 
@@ -93,7 +93,7 @@ export default function ComposeModal({ world, userProfile, onClose, onPost }) {
               letterSpacing: '0.5px'
             }}>
               <Target size={14} />
-              <span>Side Quest</span>
+              <span>Активный квест</span>
             </div>
 
             {/* Horizontal scroll container */}
@@ -185,26 +185,30 @@ export default function ComposeModal({ world, userProfile, onClose, onPost }) {
                 @{userProfile.handle}
               </span>
             </div>
-            <textarea 
-              value={postText}
-              onChange={(e) => setPostText(e.target.value)}
-              placeholder="Что у вас на уме?"
-              style={{ 
-                width: '100%', 
-                background: 'transparent', 
-                border: 'none', 
-                outline: 'none', 
-                color: '#fff', 
-                fontSize: '18px', 
-                lineHeight: '1.5', 
-                resize: 'none', 
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-                minHeight: '100px',
-                padding: 0,
-                margin: 0
-              }}
-              autoFocus
-            />
+              <textarea 
+                value={postText}
+                onChange={(e) => setPostText(e.target.value)}
+                placeholder="О чем вы думаете?..."
+                maxLength={280}
+                style={{ 
+                  width: '100%', 
+                  background: 'transparent', 
+                  border: 'none', 
+                  outline: 'none', 
+                  color: '#fff', 
+                  fontSize: '18px', 
+                  lineHeight: '1.5', 
+                  resize: 'none', 
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  minHeight: '100px',
+                  padding: 0,
+                  margin: 0
+                }}
+                autoFocus
+              />
+              <div style={{ textAlign: 'right', fontSize: '0.85rem', color: postText.length >= 280 ? 'var(--danger-color)' : '#6b7280', marginTop: '4px' }}>
+                {postText.length}/280
+              </div>
           </div>
         </div>
 

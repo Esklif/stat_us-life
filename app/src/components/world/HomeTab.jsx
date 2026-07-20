@@ -32,15 +32,15 @@ export default function HomeTab({ world }) {
   const [customEvent, setCustomEvent] = useState('');
   const [eventsLoading, setEventsLoading] = useState(false);
 
-  // We rely on WorldOnboarding for first-time setup
-  if (!world.isInitialized) {
-    return <WorldOnboarding world={world} onComplete={() => {}} />;
-  }
-
   // Pull-to-refresh State
   const [refreshing, setRefreshing] = useState(false);
   const [startY, setStartY] = useState(0);
   const [pullDistance, setPullDistance] = useState(0);
+
+  // We rely on WorldOnboarding for first-time setup
+  if (!world.isInitialized) {
+    return <WorldOnboarding world={world} onComplete={() => {}} />;
+  }
 
   const fetchBackgroundActivity = async () => {
     if (!world.isInitialized) return;
@@ -56,10 +56,13 @@ export default function HomeTab({ world }) {
 
         if (res.newPosts && res.newPosts.length > 0) {
           res.newPosts.forEach(cp => {
+            const cleanHandle = cp.handle.replace('@', '');
+            const char = w.relationships?.find(r => r.handle === cleanHandle);
+            const avatar = char?.avatar || `https://api.dicebear.com/7.x/shapes/svg?seed=${cleanHandle}`;
             updatedPosts.unshift({
                id: Date.now().toString() + Math.random(),
                text: cp.text,
-               author: { name: cp.name, handle: cp.handle.replace('@', ''), avatar: null },
+               author: { name: cp.name, handle: cleanHandle, avatar: avatar },
                timestamp: new Date().toISOString(),
                replies: [],
                likes: Math.floor(Math.random() * 490) + 10,
@@ -74,9 +77,12 @@ export default function HomeTab({ world }) {
           res.newComments.forEach(nc => {
             const pIdx = updatedPosts.findIndex(p => p.id === nc.postId || p.id == nc.postId);
             if (pIdx > -1) {
+              const cleanHandle = nc.handle.replace('@', '');
+              const char = w.relationships?.find(r => r.handle === cleanHandle);
+              const avatar = char?.avatar || `https://api.dicebear.com/7.x/shapes/svg?seed=${cleanHandle}`;
               const replyObj = {
-                handle: nc.handle, name: nc.name, reply: nc.reply,
-                isChar: true, avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${nc.handle.replace('@','')}`
+                handle: cleanHandle, name: nc.name, reply: nc.reply,
+                isChar: true, avatar: avatar
               };
               updatedPosts[pIdx] = { ...updatedPosts[pIdx], replies: [replyObj, ...(updatedPosts[pIdx].replies || [])] };
               
@@ -174,8 +180,12 @@ export default function HomeTab({ world }) {
       const reactionsResult = await generateReactions(text, world, userProfile);
       
       const allReplies = [
-        ...(reactionsResult.characterReactions || []).map(r => ({ ...r, isChar: true })),
-        ...(reactionsResult.crowdReplies || []).map(r => ({ ...r, isChar: false, avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${r.handle}` }))
+        ...(reactionsResult.characterReactions || []).map(r => {
+           const cleanHandle = r.handle.replace('@', '');
+           const char = world.relationships?.find(rel => rel.handle === cleanHandle);
+           return { ...r, isChar: true, handle: cleanHandle, avatar: char?.avatar || `https://api.dicebear.com/7.x/shapes/svg?seed=${cleanHandle}` };
+        }),
+        ...(reactionsResult.crowdReplies || []).map(r => ({ ...r, isChar: false, handle: r.handle.replace('@', ''), avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${r.handle.replace('@', '')}` }))
       ];
 
       const mentionNotifications = [];
@@ -205,7 +215,7 @@ export default function HomeTab({ world }) {
             const updatedSkills = [...(w.skills || [])];
             (result.skillUpdates || []).forEach(su => {
               const sIdx = updatedSkills.findIndex(s => s.name === su.name);
-              if (sIdx > -1) updatedSkills[sIdx].progress = Math.min(100, updatedSkills[sIdx].progress + su.progressGained);
+              if (sIdx > -1) updatedSkills[sIdx].level = Math.min(100, (updatedSkills[sIdx].level || 0) + (su.progressGained || 0));
             });
 
             // Handle level up
@@ -213,15 +223,14 @@ export default function HomeTab({ world }) {
             let newLevel = w.level || 1;
             let newSkillPoints = w.skillPoints || 0;
             
-            const xpNeeded = Math.floor(100 * Math.pow(1.5, Math.max(0, newLevel - 1)));
-            if (newXp >= xpNeeded) {
+            while (newXp >= 100) {
                newLevel += 1;
-               newXp = newXp - xpNeeded;
+               newXp -= 100;
                newSkillPoints += 3;
             }
 
             // Handle stats
-            const currentStats = w.stats || { humor: 1.0, aura: 3.0 };
+            const currentStats = w.stats || { humor: 0.0, aura: 0.0 };
             const newStats = {
               humor: currentStats.humor + (result.statsUpdates?.humorGained || 0),
               aura: currentStats.aura + (result.statsUpdates?.auraGained || 0)
@@ -275,12 +284,22 @@ export default function HomeTab({ world }) {
             // Add new posts from characters
             let newCharPosts = [];
             (result.newPostsFromCharacters || []).forEach(cp => {
+               const cleanHandle = (cp.handle || '').replace('@', '');
+               const char = w.relationships?.find(r => r.handle === cleanHandle);
+               const avatar = char?.avatar || `https://api.dicebear.com/7.x/shapes/svg?seed=${cleanHandle}`;
                newCharPosts.push({
                  id: Date.now().toString() + Math.random(),
                  text: cp.text,
-                 author: { name: cp.name, handle: cp.handle.replace('@', ''), avatar: null },
+                 author: { name: cp.name, handle: cleanHandle, avatar: avatar },
                  timestamp: new Date().toISOString(),
-                 replies: [],
+                 replies: (cp.replies || []).map(r => {
+                   const rHandle = (r.handle || '').replace('@', '');
+                   const rChar = w.relationships?.find(rel => rel.handle === rHandle);
+                   const rAvatar = rChar?.avatar || `https://api.dicebear.com/7.x/shapes/svg?seed=${rHandle}`;
+                   return {
+                     handle: rHandle, name: r.name, reply: r.reply, isChar: true, avatar: rAvatar
+                   };
+                 }),
                  likes: Math.floor(Math.random() * 490) + 10,
                  isLiked: false,
                  retweets: 0,
@@ -405,7 +424,7 @@ export default function HomeTab({ world }) {
     const sysPost = {
       id: Date.now().toString(),
       text: `⚡ СРОЧНЫЕ НОВОСТИ: ${eventName}`,
-      author: { name: 'Система', handle: 'system', avatar: null },
+      author: { name: 'Вестник Мира', handle: 'world_news', avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=world_news' },
       timestamp: new Date().toISOString(),
       replies: [],
       likes: 0,
@@ -416,7 +435,7 @@ export default function HomeTab({ world }) {
     };
     updateWorldData(world.id, w => ({ 
       ...w, 
-      posts: [...w.posts, sysPost],
+      posts: [sysPost, ...w.posts],
       eventContext: eventName // Store global event context
     }));
     setShowEvents(false);
@@ -436,7 +455,6 @@ export default function HomeTab({ world }) {
         justifyContent: 'center',
         overflow: 'hidden',
         transition: refreshing ? 'height 0.3s' : 'none',
-        backgroundColor: 'var(--bg-color)',
       }}>
         {(pullDistance > 0 || refreshing) && (
           <div style={{
@@ -451,31 +469,43 @@ export default function HomeTab({ world }) {
       {/* Feed */}
       <div className="flex-col">
         {world.posts?.length > 0 && pullDistance === 0 && !refreshing && (
-           <div className="text-center text-secondary py-2" style={{ fontSize: '0.8rem', opacity: 0.6 }}>
+           <div className="pull-hint">
              Потяните вниз, чтобы обновить ленту
            </div>
         )}
-        {world.posts?.map(post => (
-          <div key={post.id} className="p-4 flex gap-3" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: post.isSystem ? 'rgba(147, 51, 234, 0.1)' : 'transparent' }}>
-            <div className="avatar" style={{ width: 48, height: 48, backgroundImage: post.author.avatar ? `url(${post.author.avatar})` : 'none', backgroundColor: post.isSystem ? '#9333ea' : '#333' }}>
-              {!post.author.avatar && post.author.name.charAt(0)}
+        {world.posts?.filter(post => !post.text.startsWith('RT @')).map(post => (
+          <div key={post.id} className={`post-card${post.isSystem ? ' system' : ''}`}>
+            <div
+              className="avatar"
+              style={{
+                width: 48,
+                height: 48,
+                backgroundImage: post.author.avatar 
+                  ? `url(${post.author.avatar})` 
+                  : (post.author.handle !== userProfile.handle && !post.isSystem && !world.relationships?.some(r => r.handle === post.author.handle)
+                     ? `url(https://api.dicebear.com/7.x/shapes/svg?seed=${post.author.handle})` 
+                     : 'none'),
+                backgroundColor: post.isSystem ? '#9333ea' : '#333',
+              }}
+            >
+              {!post.author.avatar && (!world.relationships?.some(r => r.handle === post.author.handle) && post.author.handle !== userProfile.handle && !post.isSystem ? null : (post.author.name && post.author.name.charAt(0)))}
             </div>
-            <div className="flex-1 flex-col ml-2">
-              <div className="flex items-center gap-1">
-                <span style={{ fontWeight: 'bold' }}>{post.author.name}</span>
-                <span style={{ color: 'var(--text-secondary)' }}>@{post.author.handle}</span>
+            <div className="flex-1 flex-col ml-3">
+              <div className="post-author">
+                <span className="post-author-name">{post.author.name}</span>
+                <span className="post-author-handle">@{post.author.handle}</span>
               </div>
-              <p style={{ marginTop: '4px', fontSize: '1rem', color: '#fff', fontWeight: post.isSystem ? 'bold' : 'normal' }}>{renderTextWithMentions(post.text)}</p>
+              <p className={`post-text${post.isSystem ? ' system' : ''}`}>{renderTextWithMentions(post.text)}</p>
               
               {!post.isSystem && (
-                <div className="flex items-center gap-6 mt-3 text-secondary">
-                  <button onClick={() => setActivePost(post)} className="flex items-center gap-1 btn-icon" style={{ width: 'auto', height: 'auto', fontSize: '0.85rem' }}>
+                <div className="post-actions">
+                  <button onClick={() => setActivePost(post)} className="post-action-btn">
                     <MessageCircle size={18} /> {post.replies?.length || 0}
                   </button>
-                  <button onClick={() => handleRetweet(post)} className="flex items-center gap-1 btn-icon" style={{ width: 'auto', height: 'auto', fontSize: '0.85rem', color: post.isRetweeted ? 'var(--success-color)' : '' }}>
+                  <button onClick={() => handleRetweet(post)} className={`post-action-btn${post.isRetweeted ? ' retweeted' : ''}`}>
                     <Repeat2 size={18} /> {post.retweets || 0}
                   </button>
-                  <button onClick={() => handleLike(post)} className="flex items-center gap-1 btn-icon" style={{ width: 'auto', height: 'auto', fontSize: '0.85rem', color: post.isLiked ? 'var(--danger-color)' : '' }}>
+                  <button onClick={() => handleLike(post)} className={`post-action-btn${post.isLiked ? ' liked' : ''}`}>
                     <Heart size={18} fill={post.isLiked ? 'currentColor' : 'none'} /> {post.likes || 0}
                   </button>
                 </div>
@@ -485,55 +515,36 @@ export default function HomeTab({ world }) {
         ))}
       </div>
 
-      {/* FAB Compose & Events */}
-      <div style={{ position: 'fixed', bottom: '80px', left: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 40 }}>
-        <button 
-          onClick={handleOpenEvents}
-          style={{
-            width: '48px', height: '48px', borderRadius: '50%',
-            backgroundColor: '#fff', color: '#000',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)', border: 'none', cursor: 'pointer'
-          }}
-        >
-          <Sparkles size={20} />
-        </button>
-      </div>
+      {/* FAB Events (left) */}
+      <button onClick={handleOpenEvents} className="fab fab-secondary" style={{ left: '20px' }}>
+        <Sparkles size={20} />
+      </button>
 
-      <div style={{ position: 'fixed', bottom: '80px', right: '20px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 40 }}>
-        <button 
-          onClick={() => setShowCompose(true)}
-          style={{
-            width: '56px', height: '56px', borderRadius: '50%',
-            backgroundColor: 'var(--accent-color)', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)', border: 'none', cursor: 'pointer'
-          }}
-        >
-          <Plus size={24} />
-        </button>
-      </div>
+      {/* FAB Compose (right) */}
+      <button onClick={() => setShowCompose(true)} className="fab fab-primary" style={{ right: '20px' }}>
+        <Plus size={24} />
+      </button>
 
       {/* Events Modal */}
       {showEvents && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', paddingTop: 'max(env(safe-area-inset-top), 40px)' }}>
+        <div className="modal-overlay">
            <div className="card w-full flex-col" style={{ maxWidth: '400px' }}>
-             <header className="p-4 border-b flex justify-between items-center" style={{ borderBottom: '1px solid var(--border-color)' }}>
-               <h3 style={{ fontSize: '1.2rem', margin: 0 }}>События</h3>
-               <button onClick={() => setShowEvents(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>Закрыть</button>
+             <header className="modal-header">
+               <h3 className="modal-title">События</h3>
+               <button onClick={() => setShowEvents(false)} className="btn btn-ghost">Закрыть</button>
              </header>
              <div className="p-4 flex-col gap-3">
                 {eventsLoading ? (
-                  <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>LLM генерирует события...</div>
+                  <div className="text-center text-secondary">LLM генерирует события...</div>
                 ) : (
                   <>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Выберите событие или создайте своё. Оно повлияет на мир.</p>
+                    <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Выберите событие или создайте своё. Оно повлияет на мир.</p>
                     {eventsList.map((ev, i) => (
-                      <button key={i} onClick={() => applyEvent(ev)} className="btn btn-secondary" style={{ textAlign: 'left', padding: '0.8rem', whiteSpace: 'normal' }}>
+                      <button key={i} onClick={() => applyEvent(ev)} className="btn btn-secondary" style={{ textAlign: 'left', whiteSpace: 'normal' }}>
                         {ev}
                       </button>
                     ))}
-                    <div style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '10px 0' }}></div>
+                    <div className="divider"></div>
                     <label className="input-label">Свое событие</label>
                     <input type="text" className="input-field" value={customEvent} onChange={e => setCustomEvent(e.target.value)} placeholder="Придумайте событие..." />
                     <button className="btn btn-primary" onClick={() => applyEvent(customEvent)} disabled={!customEvent.trim()}>Запустить событие</button>
@@ -556,50 +567,77 @@ export default function HomeTab({ world }) {
 
       {/* Reply Modal */}
       {activePost && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 100, display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingTop: 'max(env(safe-area-inset-top), 40px)' }}>
-          <header className="p-4 flex items-center justify-between border-b" style={{ borderBottom: '1px solid var(--border-color)' }}>
-            <button onClick={() => setActivePost(null)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: '1.1rem', cursor: 'pointer' }}>Назад</button>
-            <div style={{ fontWeight: 'bold' }}>Ветка (Thread)</div>
+        <div className="modal-fullscreen">
+          <header className="modal-header">
+            <button onClick={() => setActivePost(null)} className="btn btn-ghost">Назад</button>
+            <div className="modal-title">Ветка (Thread)</div>
             <div style={{ width: '40px' }}></div>
           </header>
           
-          <div className="p-4 border-b" style={{ borderBottom: '1px solid var(--border-color)' }}>
-            <div className="flex gap-3 mb-3">
-              <div className="avatar" style={{ width: 48, height: 48, backgroundImage: activePost.author.avatar ? `url(${activePost.author.avatar})` : 'none', backgroundColor: activePost.isSystem ? '#9333ea' : '#333' }}>
+          <div className="flex-col p-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
+            <div className="flex gap-3 mb-3 items-center">
+              <div
+                className="avatar"
+                style={{
+                  width: 48,
+                  height: 48,
+                  backgroundImage: activePost.author.avatar ? `url(${activePost.author.avatar})` : 'none',
+                  backgroundColor: activePost.isSystem ? '#9333ea' : '#333',
+                }}
+              >
                 {!activePost.author.avatar && activePost.author.name.charAt(0)}
               </div>
-              <div className="flex-1 ml-2">
-                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{activePost.author.name}</div>
-                 <div style={{ color: 'var(--text-secondary)' }}>@{activePost.author.handle}</div>
+              <div className="flex-col justify-center">
+                 <div className="post-author-name" style={{ fontSize: '1.1rem' }}>{activePost.author.name}</div>
+                 <div className="post-author-handle">@{activePost.author.handle}</div>
               </div>
             </div>
-            <p style={{ fontSize: '1.2rem', color: '#fff' }}>{renderTextWithMentions(activePost.text)}</p>
+            <p className="post-text" style={{ fontSize: '1rem', marginTop: 0 }}>{renderTextWithMentions(activePost.text)}</p>
           </div>
 
-          <div className="flex-1 p-4 flex-col gap-4">
+          <div className="flex-1 p-4 flex-col gap-4" style={{ overflowY: 'auto' }}>
             {activePost.replies?.map((reply, idx) => (
-              <div key={idx} className="flex gap-3">
-                <div className="avatar" style={{ width: 40, height: 40, backgroundImage: reply.avatar ? `url(${reply.avatar})` : 'none', backgroundColor: reply.isChar ? 'var(--accent-purple)' : 'var(--surface-color-hover)' }}>
+              <div key={idx} className="flex gap-3 mb-2">
+                <div
+                  className="avatar"
+                  style={{
+                    width: 40,
+                    height: 40,
+                    backgroundImage: reply.avatar ? `url(${reply.avatar})` : 'none',
+                    backgroundColor: reply.isChar ? 'var(--accent-purple)' : 'var(--surface-color-hover)',
+                  }}
+                >
                   {!reply.avatar && reply.name.charAt(0)}
                 </div>
-                <div className="flex-1 ml-2">
-                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{reply.name} <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>{reply.handle}</span></div>
-                  <p style={{ fontSize: '1rem', color: '#fff' }}>{renderTextWithMentions(reply.reply)}</p>
+                <div className="flex-1 flex-col justify-center">
+                  <div className="flex items-center gap-2">
+                    <span className="post-author-name">{reply.name}</span>
+                    <span className="post-author-handle">@{reply.handle.replace('@','')}</span>
+                  </div>
+                  <p className="post-text" style={{ fontSize: '1rem', marginTop: '4px' }}>{renderTextWithMentions(reply.reply)}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div style={{ borderTop: '1px solid var(--border-color)', padding: '1rem', display: 'flex', gap: '10px' }}>
-             <input 
-               type="text" 
-               className="input-field" 
-               placeholder="Ваш ответ..." 
-               style={{ flex: 1, marginBottom: 0 }}
-               value={replyText}
-               onChange={(e) => setReplyText(e.target.value)}
-             />
-             <button className="btn btn-primary" onClick={handleReplySubmit} disabled={!replyText.trim()}>Ответить</button>
+          <div style={{ borderTop: '1px solid var(--border-color)', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+               <div style={{ position: 'relative', flex: 1 }}>
+                 <input 
+                   type="text" 
+                   className="input-field" 
+                   placeholder="Ваш ответ..." 
+                   maxLength={280}
+                   value={replyText}
+                   onChange={e => setReplyText(e.target.value)}
+                   style={{ paddingRight: '50px' }}
+                 />
+                 <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: replyText.length >= 280 ? 'var(--danger-color)' : 'var(--text-secondary)' }}>
+                   {replyText.length}/280
+                 </div>
+               </div>
+               <button className="btn btn-primary" onClick={handleReplySubmit} disabled={!replyText.trim()}>Ответить</button>
+             </div>
           </div>
         </div>
       )}

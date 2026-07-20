@@ -16,6 +16,15 @@ export default function WorldFeed() {
   const world = worlds.find(w => w.id === id);
   const [activeTab, setActiveTab] = useState('home');
 
+  const unreadCount = Math.max(0, (world?.notifications?.length || 0) - (world?.seenNotificationsCount || 0));
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'notifications' && unreadCount > 0) {
+      useStore.getState().updateWorldData(world.id, w => ({ ...w, seenNotificationsCount: w.notifications?.length || 0 }));
+    }
+  };
+
   useEffect(() => {
     if (!world) {
       navigate('/');
@@ -29,18 +38,18 @@ export default function WorldFeed() {
   if (!world) return null;
 
   return (
-    <div className="flex-col min-h-screen" style={{ paddingBottom: '80px', backgroundColor: 'var(--bg-color)' }}>
-      {/* Top Header */}
-      <header className="p-4 flex items-center justify-between" style={{ position: 'sticky', top: 0, backgroundColor: 'rgba(14,14,14,0.9)', backdropFilter: 'blur(10px)', zIndex: 10, borderBottom: '1px solid var(--border-color)' }}>
-        <div className="flex items-center gap-2" style={{ fontWeight: 'bold' }}>
-          <Sun size={20} color="#fbbf24" /> День {world.day || 1}
+    <div className="flex-col min-h-screen" style={{ paddingBottom: '80px' }}>
+      <header className="sticky-header">
+        <div className="section-title">
+          <Sun size={20} color="#fbbf24" /> {world.name}
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="btn-icon" style={{ width: 'auto', height: 'auto', color: 'var(--danger-color)' }}><LogOut size={20} /></button>
+          <button onClick={() => navigate('/')} className="btn-icon">
+            <LogOut size={20} />
+          </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
       <main className="flex-1 w-full relative">
         {activeTab === 'home' && <HomeTab world={world} />}
         {activeTab === 'quests' && <QuestsTab world={world} />}
@@ -49,22 +58,27 @@ export default function WorldFeed() {
         {activeTab === 'profile' && <ProfileTab world={world} />}
       </main>
 
-      {/* Bottom Navigation */}
       <nav className="bottom-nav">
-        <button className={`btn-icon ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
-          <Home size={24} fill={activeTab === 'home' ? 'currentColor' : 'none'} />
+        <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => handleTabChange('home')}>
+          <Home size={22} fill={activeTab === 'home' ? 'currentColor' : 'none'} />
+          <span className="nav-label">Лента</span>
         </button>
-        <button className={`btn-icon ${activeTab === 'quests' ? 'active' : ''}`} onClick={() => setActiveTab('quests')}>
-          <Target size={24} fill={activeTab === 'quests' ? 'currentColor' : 'none'} />
+        <button className={`nav-item ${activeTab === 'quests' ? 'active' : ''}`} onClick={() => handleTabChange('quests')}>
+          <Target size={22} fill={activeTab === 'quests' ? 'currentColor' : 'none'} />
+          <span className="nav-label">Квесты</span>
         </button>
-        <button className={`btn-icon ${activeTab === 'messages' ? 'active' : ''}`} onClick={() => setActiveTab('messages')}>
-          <MessageSquare size={24} fill={activeTab === 'messages' ? 'currentColor' : 'none'} />
+        <button className={`nav-item ${activeTab === 'messages' ? 'active' : ''}`} onClick={() => handleTabChange('messages')}>
+          <MessageSquare size={22} fill={activeTab === 'messages' ? 'currentColor' : 'none'} />
+          <span className="nav-label">Чаты</span>
         </button>
-        <button className={`btn-icon ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>
-          <Bell size={24} fill={activeTab === 'notifications' ? 'currentColor' : 'none'} />
+        <button className={`nav-item ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => handleTabChange('notifications')}>
+          <Bell size={22} fill={activeTab === 'notifications' ? 'currentColor' : 'none'} />
+          {unreadCount > 0 && <span className="nav-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+          <span className="nav-label">Уведомления</span>
         </button>
-        <button className={`btn-icon ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
-          <User size={24} fill={activeTab === 'profile' ? 'currentColor' : 'none'} />
+        <button className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => handleTabChange('profile')}>
+          <User size={22} fill={activeTab === 'profile' ? 'currentColor' : 'none'} />
+          <span className="nav-label">Профиль</span>
         </button>
       </nav>
     </div>

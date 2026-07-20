@@ -31,7 +31,7 @@ const useStore = create(
             { name: "Domain Presence", desc: "non-existent as a monk's cursed energy", level: 0 },
             { name: "Provocative Wit", desc: "sadder than a Grade 4 fly head", level: 0 }
           ],
-          stats: { humor: 1.0, aura: 3.0 },
+          stats: { humor: 0.0, aura: 0.0 },
           followers: 0,
           relationships: [],
           notifications: [],
@@ -64,6 +64,10 @@ const useStore = create(
 
       updateWorldData: (worldId, updater) => set((state) => ({
         worlds: state.worlds.map(w => w.id === worldId ? updater(w) : w)
+      })),
+      
+      importWorld: (worldData) => set((state) => ({
+        worlds: [...state.worlds, { ...worldData, id: Date.now().toString() }]
       }))
     }),
     {

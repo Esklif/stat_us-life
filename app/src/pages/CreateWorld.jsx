@@ -1,15 +1,19 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import useStore from '../store/useStore';
 import { ArrowLeft, Image as ImageIcon } from 'lucide-react';
 
 export default function CreateWorld() {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [avatar, setAvatar] = useState(null);
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get('edit');
+  const { worlds, addWorld, updateWorldData } = useStore();
+  const editWorld = editId ? worlds.find(w => w.id === editId) : null;
+
+  const [name, setName] = useState(editWorld ? editWorld.name : '');
+  const [description, setDescription] = useState(editWorld ? editWorld.description : '');
+  const [avatar, setAvatar] = useState(editWorld ? editWorld.avatar : null);
   const fileInputRef = useRef(null);
   
-  const { addWorld } = useStore();
   const navigate = useNavigate();
 
   const handleImageChange = (e) => {
@@ -25,47 +29,54 @@ export default function CreateWorld() {
 
   const handleCreate = () => {
     if (!name.trim() || !description.trim()) return;
-    addWorld({
-      name,
-      description,
-      avatar,
-      createdAt: new Date().toISOString()
-    });
+    if (editId) {
+      updateWorldData(editId, w => ({ ...w, name, description, avatar }));
+    } else {
+      addWorld({
+        name,
+        description,
+        avatar,
+        createdAt: new Date().toISOString()
+      });
+    }
     navigate('/');
   };
 
   return (
     <div className="p-4 flex-col min-h-screen">
-      <header className="flex items-center gap-4 mb-6 pt-2">
-        <button onClick={() => navigate('/')} className="btn-icon" style={{ background: 'transparent' }}>
+      <header className="modal-header">
+        <button onClick={() => navigate('/')} className="btn-icon btn-ghost">
           <ArrowLeft size={24} />
         </button>
-        <h2 style={{ fontSize: '1.25rem' }}>Создать мир</h2>
+        <h2 className="modal-title">{editId ? 'Редактировать мир' : 'Создать мир'}</h2>
       </header>
 
       <div className="flex-col gap-6">
         <div className="flex justify-center mb-2">
-          <div 
+          <div
+            className="empty-state-icon"
             onClick={() => fileInputRef.current?.click()}
             style={{
-              width: '120px', height: '120px', borderRadius: '50%',
+              width: '120px',
+              height: '120px',
+              borderRadius: '50%',
               background: avatar ? `url(${avatar}) center/cover` : 'var(--surface-color)',
               border: '2px dashed var(--border-color)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', overflow: 'hidden'
+              cursor: 'pointer',
+              overflow: 'hidden'
             }}
           >
             {!avatar && <ImageIcon size={32} color="var(--text-secondary)" />}
           </div>
-          <input 
-            type="file" 
-            accept="image/*" 
-            ref={fileInputRef} 
-            onChange={handleImageChange} 
-            style={{ display: 'none' }} 
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleImageChange}
+            hidden
           />
         </div>
-        <p className="text-center" style={{ marginTop: '-1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+        <p className="empty-state-text" style={{ textAlign: 'center', marginTop: '-15px', color: 'var(--text-secondary)' }}>
           Добавить обложку (опционально)
         </p>
 
@@ -91,12 +102,12 @@ export default function CreateWorld() {
           />
         </div>
 
-        <button 
-          className="btn btn-primary w-full mt-4" 
+        <button
+          className="btn btn-primary w-full mt-4"
           onClick={handleCreate}
           disabled={!name.trim() || !description.trim()}
         >
-          Продолжить
+          {editId ? 'Сохранить изменения' : 'Продолжить'}
         </button>
       </div>
     </div>

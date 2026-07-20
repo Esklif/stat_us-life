@@ -1,23 +1,44 @@
 import React from 'react';
-import { Reply, UserPlus } from 'lucide-react';
+import { Heart, Reply, Zap, Bell } from 'lucide-react';
+
+const notifIcon = (type) => {
+  switch (type) {
+    case 'like': return <Heart size={20} />;
+    case 'reply': return <Reply size={20} />;
+    default: return <Zap size={20} />;
+  }
+};
+
+const notifIconModifier = (type) => {
+  switch (type) {
+    case 'like': return ' like';
+    case 'reply': return ' reply';
+    default: return ' system';
+  }
+};
 
 export default function NotificationsTab({ world }) {
   const notifications = world.notifications || [];
 
   if (notifications.length === 0) {
-    return <div className="p-4 text-center mt-10" style={{ color: 'var(--text-secondary)' }}>Пока нет уведомлений.</div>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">
+          <Bell size={48} />
+        </div>
+        <div className="empty-state-title">Нет уведомлений</div>
+        <div className="empty-state-text">Пока нет уведомлений.</div>
+      </div>
+    );
   }
 
   return (
     <div className="flex-col pb-20">
-      <div className="p-4" style={{ fontSize: '1.25rem', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)' }}>
-        Уведомления
-      </div>
       <div className="flex-col">
         {notifications.map((notif, idx) => (
-          <div key={idx} className="p-4 flex gap-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
-            <div style={{ marginTop: '4px' }}>
-              {notif.type === 'reply' ? <Reply size={20} color="var(--accent-color)" /> : <UserPlus size={20} color="var(--accent-color)" />}
+          <div key={idx} className="notif-item">
+            <div className={`notif-icon${notifIconModifier(notif.type)}`}>
+              {notifIcon(notif.type)}
             </div>
             <div className="flex-1 flex-col gap-2">
               <div className="flex gap-2">
@@ -25,11 +46,11 @@ export default function NotificationsTab({ world }) {
                   {notif.actorName?.charAt(0) || '*'}
                 </div>
               </div>
-              <div style={{ fontSize: '1rem', color: '#fff' }}>
-                <span style={{ fontWeight: 'bold' }}>{notif.actorName}</span> {notif.text} <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>· День {world.day || 1}</span>
+              <div className="notif-text">
+                <span className="post-author-name">{notif.actorName}</span> {notif.text} <span className="notif-time">· День {world.day || 1}</span>
               </div>
               {notif.subText && (
-                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{notif.subText}</div>
+                <div className="notif-subtext">{notif.subText}</div>
               )}
             </div>
           </div>

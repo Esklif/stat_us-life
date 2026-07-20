@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, ArrowLeft, Send } from 'lucide-react';
+import { Plus, ArrowLeft, Send, MessageSquare } from 'lucide-react';
 import useStore from '../../store/useStore';
 import { processDirectMessage } from '../../api/llm';
 
@@ -80,45 +80,40 @@ export default function MessagesTab({ world }) {
 
   return (
     <div className="flex-col h-full items-center p-4 pb-20">
-      <div className="flex-1 flex-col items-center justify-center text-center mt-10">
-        <h3 style={{ fontSize: '1.25rem', marginBottom: '8px', color: '#fff' }}>У вас пока нет активных диалогов</h3>
-        <p style={{ color: 'var(--text-secondary)' }}>Начните новую переписку, нажав кнопку +</p>
+      <div className="empty-state">
+        <MessageSquare size={48} className="empty-state-icon" />
+        <h3 className="empty-state-title">У вас пока нет активных диалогов</h3>
+        <p className="empty-state-text">Начните новую переписку, нажав кнопку +</p>
       </div>
 
       <button 
         onClick={() => setShowContacts(true)}
-        style={{
-          position: 'fixed', bottom: '80px', right: '20px',
-          width: '56px', height: '56px', borderRadius: '50%',
-          backgroundColor: 'var(--accent-color)', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)', border: 'none', cursor: 'pointer', zIndex: 40
-        }}
+        className="fab fab-primary"
       >
         <Plus size={24} />
       </button>
 
       {/* Contacts Modal */}
       {showContacts && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
-          <header className="p-4 flex items-center justify-between border-b" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        <div className="modal-fullscreen">
+          <header className="modal-header">
             <div className="flex items-center gap-3">
               <button onClick={() => setShowContacts(false)} className="btn-icon"><ArrowLeft size={24} /></button>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Новое сообщение</h2>
+              <h2 className="modal-title">Новое сообщение</h2>
             </div>
           </header>
           <div className="p-4 flex-col gap-4 overflow-y-auto">
              {relationships.length === 0 ? (
-                <div style={{ color: 'var(--text-secondary)' }}>Нет доступных персонажей. Взаимодействуйте в ленте или создайте их в профиле!</div>
+                <div className="empty-state-text">Нет доступных персонажей. Взаимодействуйте в ленте или создайте их в профиле!</div>
              ) : (
                 relationships.map((rel, idx) => (
                   <div key={idx} className="flex gap-3 items-center cursor-pointer" onClick={() => { setActiveChat(rel); setShowContacts(false); }}>
-                    <div className="avatar" style={{ width: 48, height: 48, backgroundColor: 'var(--accent-purple)', overflow: 'hidden' }}>
+                    <div className="avatar" style={{ width: 48, height: 48 }}>
                       {rel.avatar ? <img src={rel.avatar} style={{width:'100%',height:'100%',objectFit:'cover'}} /> : rel.name.charAt(0)}
                     </div>
                     <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{rel.name}</div>
-                      <div style={{ color: 'var(--text-secondary)' }}>@{rel.handle}</div>
+                      <div className="post-author-name">{rel.name}</div>
+                      <div className="post-author-handle">@{rel.handle}</div>
                     </div>
                   </div>
                 ))
@@ -129,49 +124,39 @@ export default function MessagesTab({ world }) {
 
       {/* Chat Window */}
       {activeChat && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 110, display: 'flex', flexDirection: 'column' }}>
-          <header className="p-4 flex items-center justify-between border-b" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        <div className="modal-fullscreen">
+          <header className="modal-header">
             <div className="flex items-center gap-3">
               <button onClick={() => setActiveChat(null)} className="btn-icon"><ArrowLeft size={24} /></button>
               <div className="flex items-center gap-2">
-                <div className="avatar" style={{ width: 32, height: 32, backgroundColor: 'var(--accent-purple)', overflow: 'hidden' }}>
+                <div className="avatar" style={{ width: 32, height: 32 }}>
                   {activeChat.avatar ? <img src={activeChat.avatar} style={{width:'100%',height:'100%',objectFit:'cover'}} /> : activeChat.name.charAt(0)}
                 </div>
-                <h2 style={{ fontSize: '1.1rem', margin: 0 }}>{activeChat.name}</h2>
+                <h2 className="modal-title">{activeChat.name}</h2>
               </div>
             </div>
           </header>
           
           <div className="flex-1 p-4 flex-col gap-3 overflow-y-auto" ref={scrollRef}>
             {(chats[activeChat.handle] || []).length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Начало переписки с {activeChat.name}</div>
+              <div className="empty-state-text" style={{ textAlign: 'center' }}>Начало переписки с {activeChat.name}</div>
             )}
             {(chats[activeChat.handle] || []).map((msg, idx) => (
-              <div key={idx} style={{ 
-                alignSelf: msg.sender === 'user' ? 'flex-end' : 'flex-start',
-                backgroundColor: msg.sender === 'user' ? 'var(--accent-color)' : 'var(--surface-color)',
-                padding: '0.75rem 1rem',
-                borderRadius: '16px',
-                borderBottomRightRadius: msg.sender === 'user' ? '4px' : '16px',
-                borderBottomLeftRadius: msg.sender === 'npc' ? '4px' : '16px',
-                maxWidth: '80%',
-                wordBreak: 'break-word',
-                marginBottom: '8px'
-              }}>
+              <div key={idx} className={`chat-bubble ${msg.sender === 'user' ? 'user' : 'npc'}`}>
                 {msg.text}
               </div>
             ))}
             {loading && (
-              <div style={{ alignSelf: 'flex-start', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>печатает...</div>
+              <div className="chat-bubble npc" style={{ opacity: 0.6 }}>печатает...</div>
             )}
           </div>
 
-          <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '10px' }}>
+          <div className="flex gap-3 p-4" style={{ borderTop: '1px solid var(--border-color)' }}>
             <input 
               type="text" 
-              className="input-field" 
+              className="input-field flex-1" 
               placeholder="Сообщение..." 
-              style={{ flex: 1, marginBottom: 0 }} 
+              style={{ marginBottom: 0 }} 
               value={msgText}
               onChange={e => setMsgText(e.target.value)}
               onKeyPress={e => e.key === 'Enter' && handleSend()}

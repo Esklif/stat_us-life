@@ -102,83 +102,77 @@ export default function ProfileTab({ world }) {
       {/* Profile Info */}
       <div className="pb-4" style={{ padding: '0 1.5rem', position: 'relative', marginTop: '-40px' }}>
         <div className="flex justify-between items-end mb-3">
-          <div className="avatar" style={{ width: 80, height: 80, border: '4px solid var(--bg-color)', fontSize: '2rem', backgroundColor: '#333', overflow: 'hidden' }}>
+          <div className="avatar" style={{ width: 80, height: 80, border: '4px solid var(--bg-color)', fontSize: '2rem' }}>
             {userProfile.avatar ? <img src={userProfile.avatar} alt="Avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} /> : userProfile.name.charAt(0)}
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowEditProfile(true)} className="btn btn-secondary" style={{ padding: '0.4rem 1rem', fontSize: '0.9rem' }}>Изменить профиль</button>
-            <button onClick={() => setShowSettings(true)} className="btn-secondary" style={{ width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Settings size={18}/></button>
+            <button onClick={() => setShowEditProfile(true)} className="btn btn-secondary">Изменить профиль</button>
+            <button onClick={() => setShowSettings(true)} className="btn btn-secondary btn-icon" style={{ width: '36px', height: '36px', borderRadius: '50%' }}><Settings size={18}/></button>
           </div>
         </div>
         
         <h2 style={{ fontSize: '1.4rem' }}>{userProfile.name}</h2>
-        <div style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>@{userProfile.handle}</div>
-        <p style={{ color: '#fff', fontSize: '0.95rem', marginBottom: '12px' }}>{userProfile.bio}</p>
+        <div className="text-secondary" style={{ marginBottom: '8px' }}>@{userProfile.handle}</div>
+        <p style={{ fontSize: '0.95rem', marginBottom: '12px' }}>{userProfile.bio}</p>
         
         <div className="flex gap-4" style={{ fontSize: '0.9rem' }}>
-          <div><span style={{ fontWeight: 'bold', color: '#fff' }}>{world.followers || 0}</span> <span style={{ color: 'var(--text-secondary)' }}>Подписчиков</span></div>
+          <div><span style={{ fontWeight: 'bold' }}>{world.followers || 0}</span> <span className="text-secondary">Подписчиков</span></div>
         </div>
       </div>
 
       {/* Buttons */}
       <div className="flex gap-2 mb-6" style={{ padding: '0 1.5rem' }}>
-        <button onClick={() => setShowCharacters(true)} className="btn btn-secondary flex-1 flex justify-center items-center gap-2" style={{ padding: '0.75rem' }}><Users size={18}/> Персонажи</button>
-        <button onClick={() => setShowLog(true)} className="btn btn-secondary flex-1" style={{ padding: '0.75rem' }}>Лог активности</button>
+        <button onClick={() => setShowCharacters(true)} className="btn btn-secondary flex-1 flex justify-center items-center gap-2"><Users size={18}/> Персонажи</button>
+        <button onClick={() => setShowLog(true)} className="btn btn-secondary flex-1">Лог активности</button>
       </div>
 
       {/* Social Media Presence */}
       <div className="mb-6" style={{ padding: '0 1.5rem' }}>
-        <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Показатели</h3>
-        <div className="flex-col gap-4">
-          <div className="flex-col gap-1">
-            <div className="flex justify-between" style={{ fontSize: '0.95rem' }}>
-              <div>😂 <span style={{ fontWeight: 'bold' }}>Юмор</span></div>
-              <div style={{ fontWeight: 'bold' }}>{stats.humor.toFixed(1)}%</div>
-            </div>
-            <div className="progress-bar-bg" style={{ height: '8px' }}>
-              <div className="progress-bar-fill" style={{ width: `${Math.min(100, stats.humor)}%`, backgroundColor: '#eab308' }}></div>
-            </div>
+        <h3 className="section-title mb-4">Показатели</h3>
+        <div className="flex gap-4">
+          <div className="stat-card flex-1">
+            <div className="stat-emoji">😂</div>
+            <div className="stat-label">Юмор</div>
+            <div className="stat-value">{stats.humor.toFixed(1)}%</div>
           </div>
-          <div className="flex-col gap-1">
-            <div className="flex justify-between" style={{ fontSize: '0.95rem' }}>
-              <div>🌟 <span style={{ fontWeight: 'bold' }}>Аура</span></div>
-              <div style={{ fontWeight: 'bold' }}>{stats.aura.toFixed(1)}%</div>
-            </div>
-            <div className="progress-bar-bg" style={{ height: '8px' }}>
-              <div className="progress-bar-fill" style={{ width: `${Math.min(100, stats.aura)}%`, backgroundColor: '#eab308' }}></div>
-            </div>
+          <div className="stat-card flex-1">
+            <div className="stat-emoji">🌟</div>
+            <div className="stat-label">Аура</div>
+            <div className="stat-value">{stats.aura.toFixed(1)}%</div>
           </div>
         </div>
       </div>
 
+      <div className="divider"></div>
+
       {/* User Posts Feed */}
       <div style={{ padding: '0 1.5rem', marginTop: '1.5rem' }}>
-        <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Ваши посты</h3>
+        <h3 className="section-title mb-4">Ваши посты</h3>
       </div>
       <div className="flex-col">
         {(world.posts || []).filter(p => p.author.handle === userProfile.handle || p.isRetweeted).length === 0 ? (
-          <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '1rem' }}>Вы еще ничего не опубликовали.</div>
+          <div className="empty-state-text" style={{ textAlign: 'center', padding: '1rem' }}>Вы еще ничего не опубликовали.</div>
         ) : (
           (world.posts || []).filter(p => p.author.handle === userProfile.handle || p.isRetweeted).map(post => (
-            <div key={post.id} className="p-4 flex gap-3" style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <div className="avatar" style={{ width: 48, height: 48, backgroundImage: post.author.avatar ? `url(${post.author.avatar})` : 'none', backgroundColor: '#333' }}>
+            <div key={post.id} className="post-card">
+              <div className="avatar" style={{ width: 48, height: 48, backgroundImage: post.author.avatar ? `url(${post.author.avatar})` : 'none', flexShrink: 0 }}>
                 {!post.author.avatar && post.author.name.charAt(0)}
               </div>
-              <div className="flex-1 flex-col ml-2">
+              <div className="flex-1 flex-col ml-3">
                 <div className="flex items-center gap-1">
-                  <span style={{ fontWeight: 'bold' }}>{post.author.name}</span>
-                  <span style={{ color: 'var(--text-secondary)' }}>@{post.author.handle}</span>
+                  <span className="post-author-name">{post.author.name}</span>
+                  <span className="post-author-handle">@{post.author.handle}</span>
                 </div>
-                <p style={{ marginTop: '4px', fontSize: '1rem', color: '#fff' }}>{post.text}</p>
+                <p className="post-text">{post.text}</p>
                 
-                <div className="flex items-center gap-6 mt-3 text-secondary">
-                  <div className="flex items-center gap-1" style={{ fontSize: '0.85rem' }}>
+                <div className="post-actions">
+                  <div className="post-action-btn">
                     <MessageCircle size={18} /> {post.replies?.length || 0}
                   </div>
-                  <div className="flex items-center gap-1" style={{ fontSize: '0.85rem', color: post.isRetweeted ? 'var(--success-color)' : '' }}>
+                  <div className="post-action-btn" style={{ color: post.isRetweeted ? 'var(--success-color)' : '' }}>
                     <Repeat2 size={18} /> {post.retweets || 0}
                   </div>
-                  <div className="flex items-center gap-1" style={{ fontSize: '0.85rem', color: post.isLiked ? 'var(--danger-color)' : '' }}>
+                  <div className="post-action-btn" style={{ color: post.isLiked ? 'var(--danger-color)' : '' }}>
                     <Heart size={18} fill={post.isLiked ? 'currentColor' : 'none'} /> {post.likes || 0}
                   </div>
                 </div>
@@ -190,17 +184,17 @@ export default function ProfileTab({ world }) {
       
       {/* Edit Profile Modal */}
       {showEditProfile && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 100, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-          <header className="p-4 flex items-center justify-between border-b" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        <div className="modal-fullscreen">
+          <header className="modal-header">
             <div className="flex items-center gap-3">
               <button onClick={() => setShowEditProfile(false)} className="btn-icon"><ArrowLeft size={24} /></button>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Редактировать профиль</h2>
+              <h2 className="modal-title">Редактировать профиль</h2>
             </div>
             <button className="btn btn-primary" onClick={() => { updateWorldData(world.id, w => ({...w, userProfile: editData})); setShowEditProfile(false); }}>Сохранить</button>
           </header>
           <div className="p-4 flex-col gap-4">
             <div className="flex-col gap-2 items-center">
-              <div className="avatar" style={{ width: 100, height: 100, border: '4px solid var(--surface-color)', overflow: 'hidden', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
+              <div className="avatar" style={{ width: 100, height: 100, border: '4px solid var(--surface-color)', cursor: 'pointer' }} onClick={() => fileInputRef.current?.click()}>
                 {editData.avatar ? <img src={editData.avatar} alt="Avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} /> : editData.name.charAt(0)}
               </div>
               <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={(e) => handleImageUpload(e, (res) => setEditData({...editData, avatar: res}))} />
@@ -227,11 +221,11 @@ export default function ProfileTab({ world }) {
 
       {/* Settings Modal */}
       {showSettings && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 100, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-          <header className="p-4 flex items-center justify-between border-b" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        <div className="modal-fullscreen">
+          <header className="modal-header">
             <div className="flex items-center gap-3">
               <button onClick={() => setShowSettings(false)} className="btn-icon"><ArrowLeft size={24} /></button>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Настройки API</h2>
+              <h2 className="modal-title">Настройки API</h2>
             </div>
             <button className="btn btn-primary" onClick={() => { setApiSettings(settingsData); setShowSettings(false); }}>Сохранить</button>
           </header>
@@ -258,16 +252,16 @@ export default function ProfileTab({ world }) {
 
       {/* Activity Log Modal */}
       {showLog && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
-          <header className="p-4 flex items-center justify-between border-b" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        <div className="modal-fullscreen">
+          <header className="modal-header">
             <div className="flex items-center gap-3">
               <button onClick={() => setShowLog(false)} className="btn-icon"><ArrowLeft size={24} /></button>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Лог активности</h2>
+              <h2 className="modal-title">Лог активности</h2>
             </div>
           </header>
           <div className="p-4 flex-col gap-3 overflow-y-auto flex-1">
             {activityLog.length === 0 ? (
-              <div style={{ color: 'var(--text-secondary)', textAlign: 'center', marginTop: '2rem' }}>Пока нет активности.</div>
+              <div className="empty-state-text" style={{ textAlign: 'center', marginTop: '2rem' }}>Пока нет активности.</div>
             ) : (
               <div className="flex-col gap-1" style={{ fontFamily: 'monospace', paddingBottom: '1rem' }}>
                 {activityLog.map((log, idx) => (
@@ -283,11 +277,11 @@ export default function ProfileTab({ world }) {
 
       {/* Characters Modal */}
       {showCharacters && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--bg-color)', zIndex: 100, display: 'flex', flexDirection: 'column' }}>
-          <header className="p-4 flex items-center justify-between border-b" style={{ borderBottom: '1px solid var(--border-color)' }}>
+        <div className="modal-fullscreen">
+          <header className="modal-header">
             <div className="flex items-center gap-3">
               <button onClick={() => setShowCharacters(false)} className="btn-icon"><ArrowLeft size={24} /></button>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Персонажи</h2>
+              <h2 className="modal-title">Персонажи</h2>
             </div>
             <button className="btn-icon" onClick={() => {
               setCharData({ name: '', handle: '', avatar: null, bio: '', percentage: 0, note: '' });
@@ -300,7 +294,7 @@ export default function ProfileTab({ world }) {
           {editingCharIdx !== null ? (
             <div className="p-4 flex-col gap-4 overflow-y-auto flex-1">
               <div className="flex-col gap-2 items-center">
-                <div className="avatar" style={{ width: 80, height: 80, overflow: 'hidden', backgroundColor: 'var(--accent-purple)', cursor: 'pointer' }} onClick={() => charFileInputRef.current?.click()}>
+                <div className="avatar" style={{ width: 80, height: 80, cursor: 'pointer' }} onClick={() => charFileInputRef.current?.click()}>
                   {charData.avatar ? <img src={charData.avatar} alt="Avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} /> : (charData.name ? charData.name.charAt(0) : '?')}
                 </div>
                 <input type="file" accept="image/*" ref={charFileInputRef} style={{ display: 'none' }} onChange={(e) => handleImageUpload(e, (res) => setCharData({...charData, avatar: res}))} />
@@ -319,7 +313,7 @@ export default function ProfileTab({ world }) {
               </div>
               <div className="flex gap-2 mt-4">
                 {editingCharIdx !== null && editingCharIdx >= 0 && (
-                  <button className="btn btn-secondary flex-1" style={{ color: 'var(--danger-color)', padding: '0.75rem 0' }} onClick={() => {
+                  <button className="btn btn-secondary flex-1" style={{ color: 'var(--danger-color)' }} onClick={() => {
                     if (!window.confirm('Удалить персонажа?')) return;
                     updateWorldData(world.id, w => {
                       const rels = [...(w.relationships || [])];
@@ -330,23 +324,23 @@ export default function ProfileTab({ world }) {
                     setCharData(null);
                   }}>Удалить</button>
                 )}
-                <button className="btn btn-secondary flex-1" style={{ padding: '0.75rem 0' }} onClick={() => setEditingCharIdx(null)}>Отмена</button>
-                <button className="btn btn-primary flex-1" style={{ padding: '0.75rem 0' }} onClick={handleSaveChar}>Сохранить</button>
+                <button className="btn btn-secondary flex-1" onClick={() => setEditingCharIdx(null)}>Отмена</button>
+                <button className="btn btn-primary flex-1" onClick={handleSaveChar}>Сохранить</button>
               </div>
             </div>
           ) : (
             <div className="p-4 flex-col gap-3 overflow-y-auto flex-1">
               {relationships.length === 0 ? (
-                <div style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>Пока нет персонажей. Добавьте нового!</div>
+                <div className="empty-state-text" style={{ textAlign: 'center' }}>Пока нет персонажей. Добавьте нового!</div>
               ) : (
                 relationships.map((rel, idx) => (
-                  <div key={idx} className="card p-3 flex gap-3 items-center cursor-pointer" style={{ marginBottom: '0.75rem' }} onClick={() => { setCharData({...rel}); setEditingCharIdx(idx); }}>
-                    <div className="avatar" style={{ width: 48, height: 48, backgroundColor: 'var(--accent-purple)', overflow: 'hidden' }}>
+                  <div key={idx} className="card p-3 flex gap-3 items-center cursor-pointer" onClick={() => { setCharData({...rel}); setEditingCharIdx(idx); }}>
+                    <div className="avatar" style={{ width: 48, height: 48 }}>
                       {rel.avatar ? <img src={rel.avatar} style={{width: '100%', height: '100%', objectFit: 'cover'}}/> : rel.name.charAt(0)}
                     </div>
                     <div className="flex-1">
-                      <div style={{ fontWeight: 'bold' }}>{rel.name}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>@{rel.handle}</div>
+                      <div className="post-author-name">{rel.name}</div>
+                      <div className="post-author-handle">@{rel.handle}</div>
                     </div>
                   </div>
                 ))
