@@ -1,49 +1,60 @@
 import useStore from '../store/useStore';
 
-async function callLLM(systemPrompt, userPrompt) {
+async function callLLM(systemPrompt, userPrompt, retries = 2) {
   const { apiSettings } = useStore.getState();
   
-  const response = await fetch(`${apiSettings.url}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiSettings.key}`
-    },
-    body: JSON.stringify({
-      model: apiSettings.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      response_format: { type: "json_object" }
-    })
-  });
-
-  if (!response.ok) {
-    let errText = response.statusText;
-    try {
-      const errJson = await response.json();
-      if (errJson.error && errJson.error.message) errText = errJson.error.message;
-    } catch(e) {}
-    throw new Error(`Код ${response.status}: ${errText}`);
+  let finalUserPrompt = userPrompt;
+  const estimatedTokens = (systemPrompt.length + userPrompt.length) / 4;
+  if (estimatedTokens > (apiSettings.maxTokens || 4000)) {
+    const maxAllowedChars = Math.max(1000, ((apiSettings.maxTokens || 4000) * 4) - systemPrompt.length);
+    // Truncate from the beginning to keep the end instructions
+    if (finalUserPrompt.length > maxAllowedChars) {
+      finalUserPrompt = "... [История обрезана из-за лимита токенов] ...\n" + finalUserPrompt.slice(-maxAllowedChars);
+    }
   }
 
-  const data = await response.json();
-  try {
-    let content = data.choices[0].message.content.trim();
-    if (content.startsWith('```json')) {
-      content = content.replace(/^```json/, '');
-    } else if (content.startsWith('```')) {
-      content = content.replace(/^```/, '');
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${apiSettings.url}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiSettings.key}`
+        },
+        body: JSON.stringify({
+          model: apiSettings.model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: finalUserPrompt }
+          ],
+          temperature: 0.7,
+          response_format: { type: "json_object" }
+        })
+      });
+
+      if (!response.ok) {
+        let errText = response.statusText;
+        try {
+          const errJson = await response.json();
+          if (errJson.error && errJson.error.message) errText = errJson.error.message;
+        } catch(e) {}
+        throw new Error(`Код ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      let content = data.choices[0].message.content.trim();
+      if (content.startsWith('```json')) content = content.replace(/^```json/, '');
+      else if (content.startsWith('```')) content = content.replace(/^```/, '');
+      if (content.endsWith('```')) content = content.replace(/```$/, '');
+      
+      return JSON.parse(content.trim());
+    } catch (e) {
+      if (attempt === retries) {
+        console.error("Failed to parse JSON from LLM after retries", e);
+        throw new Error("LLM error or invalid JSON after multiple attempts: " + e.message);
+      }
+      console.warn(`LLM parse failed, retrying (${attempt + 1}/${retries})...`, e);
     }
-    if (content.endsWith('```')) {
-      content = content.replace(/```$/, '');
-    }
-    return JSON.parse(content.trim());
-  } catch (e) {
-    console.error("Failed to parse JSON from LLM", data.choices[0].message.content);
-    throw new Error("LLM did not return valid JSON");
   }
 }
 
@@ -148,7 +159,10 @@ World: ${world.name} - ${world.description}
 World Characters: ${JSON.stringify(world.relationships)}
 Recent Posts: ${JSON.stringify(recentPosts)}
 
-Generate spontaneous background activity. Characters can write new standalone posts, or comment on recent posts. It is highly encouraged to generate at least 1-2 new posts or comments.
+Generate spontaneous background activity. 
+"Posts" are STANDALONE new topics on a character's own page.
+"Comments" are replies or reactions TO THE RECENT POSTS.
+It is highly encouraged to generate at least 1-2 new posts or comments.
 - If ANY post or reply in Recent Posts explicitly mentions a character via @handle, that character MUST reply in newComments.
 - IMPORTANT: When characters address the player or each other, they MUST use the @ symbol before their handle (e.g. @alex_88), or use their real name.
 IMPORTANT: All text MUST be in Russian language.
@@ -156,10 +170,10 @@ IMPORTANT: All text MUST be in Russian language.
 Output JSON ONLY with exact structure:
 {
   "newPosts": [
-    { "handle": "@characterHandle", "name": "Имя", "text": "Текст нового поста от лица персонажа" }
+    { "handle": "@characterHandle", "name": "Имя", "text": "Текст нового поста (отдельной темы) от лица персонажа" }
   ],
   "newComments": [
-    { "postId": "id поста из Recent Posts", "handle": "@characterHandle", "name": "Имя", "reply": "Текст комментария" }
+    { "postId": "id поста из Recent Posts", "handle": "@characterHandle", "name": "Имя", "reply": "Текст комментария/ответа на этот пост" }
   ]
 }`;
   const userPrompt = `Generate background activity.`;
@@ -177,7 +191,7 @@ Current Event Context: ${world.eventContext || "None"}
 IMPORTANT: All text MUST be in Russian language.
 
 Generate immediate reactions (COMMENTS) from characters and random users. 
-These are comments ON THE POST, NOT standalone feed posts.
+These are comments ON THE POST, NOT standalone feed posts. They should react directly to what the author just posted.
 - If the post explicitly @mentions a character by their handle, that character MUST reply in characterReactions.
 - IMPORTANT: When characters address the player or each other, they MUST use the @ symbol before their handle (e.g. @alex_88), or use their real name.
 Output JSON ONLY with exact structure:
@@ -236,9 +250,9 @@ Output JSON ONLY with exact structure:
     { 
        "handle": "handle", 
        "name": "Имя", 
-       "text": "САМОСТОЯТЕЛЬНЫЙ пост в ленту. Пишут о себе, лоре, реакция на мир.",
+       "text": "САМОСТОЯТЕЛЬНЫЙ пост в ленту (НЕ комментарий к посту юзера!). Пишут о себе, лоре, реакция на мир.",
        "replies": [
-          { "handle": "@random", "name": "Имя комментатора", "reply": "Коммент под постом NPC" }
+          { "handle": "@random", "name": "Имя комментатора", "reply": "Коммент под этим постом NPC" }
        ]
     }
   ]

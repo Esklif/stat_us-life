@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export const useBackStore = create((set) => ({
+  handlers: [],
+  pushHandler: (id, fn) => set((state) => ({ handlers: [...state.handlers, { id, fn }] })),
+  removeHandler: (id) => set((state) => ({ handlers: state.handlers.filter(h => h.id !== id) })),
+}));
+
 const useStore = create(
   persist(
     (set, get) => ({
@@ -8,12 +14,20 @@ const useStore = create(
         url: 'https://api.openai.com/v1',
         key: '',
         model: 'gpt-4o-mini',
+        maxTokens: 4000,
         systemPrompt: 'You are managing a strict social network simulation (like Twitter or Reddit). Characters ONLY communicate via online posts, comments, and direct messages. They NEVER interact in physical reality. All events, quests, and actions MUST be framed as online activities (e.g., "write a post about X", "reply to Y", "start a drama thread", "cancel Z"). Do NOT generate real-life physical quests (like "pass an interview" or "go to the store").',
       },
       setApiSettings: (settings) => set({ apiSettings: settings }),
 
       isFirstLogin: true,
       setIsFirstLogin: (val) => set({ isFirstLogin: val }),
+
+      theme: 'dark',
+      toggleTheme: () => set(state => {
+        const newTheme = state.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        return { theme: newTheme };
+      }),
 
       worlds: [],
       addWorld: (world) => set((state) => ({ 

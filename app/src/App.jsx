@@ -4,17 +4,36 @@ import TitlePage from './pages/TitlePage';
 import WorldFeed from './pages/WorldFeed';
 import CreateWorld from './pages/CreateWorld';
 import ApiSettingsModal from './components/ApiSettingsModal';
-import useStore from './store/useStore';
+import useStore, { useBackStore } from './store/useStore';
+import { App as CapacitorApp } from '@capacitor/app';
 
 function App() {
-  const { isFirstLogin, apiSettings } = useStore();
+  const { isFirstLogin, apiSettings, theme } = useStore();
   const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme || 'dark');
+  }, [theme]);
 
   useEffect(() => {
     if (isFirstLogin || !apiSettings.key) {
       setShowSettings(true);
     }
   }, [isFirstLogin, apiSettings.key]);
+
+  useEffect(() => {
+    const listener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      const handlers = useBackStore.getState().handlers;
+      if (handlers.length > 0) {
+        handlers[handlers.length - 1].fn();
+      } else if (canGoBack) {
+        window.history.back();
+      } else {
+        CapacitorApp.exitApp();
+      }
+    });
+    return () => listener.remove();
+  }, []);
 
   return (
     <Router>

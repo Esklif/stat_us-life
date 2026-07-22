@@ -80,18 +80,29 @@ export default function ApiSettingsModal({ onClose }) {
         </div>
 
         <div className="input-group">
-          <label className="input-label">Модель</label>
+          <label className="input-label">Модель (напр. gpt-4o-mini)</label>
           <input
-            type="text"
+            className="input-field"
             name="model"
             value={localSettings.model}
             onChange={handleChange}
-            className="input-field"
-            placeholder="gpt-4o-mini"
+            placeholder="gpt-3.5-turbo"
           />
         </div>
 
         <div className="input-group">
+          <label className="input-label">Лимит токенов контекста</label>
+          <input
+            className="input-field"
+            type="number"
+            name="maxTokens"
+            value={localSettings.maxTokens || 4000}
+            onChange={handleChange}
+            placeholder="4000"
+          />
+        </div>
+
+        <div className="input-group flex-1">
           <label className="input-label">System Prompt</label>
           <textarea
             name="systemPrompt"

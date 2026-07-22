@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { X, Lightbulb, Target } from 'lucide-react';
 import { generatePostSuggestions } from '../../api/llm';
+import { useBackStore } from '../../store/useStore';
 
 export default function ComposeModal({ world, userProfile, onClose, onPost }) {
   const [postText, setPostText] = useState('');
+
+  useEffect(() => {
+    const id = 'ComposeModal';
+    useBackStore.getState().pushHandler(id, onClose);
+    return () => useBackStore.getState().removeHandler(id);
+  }, [onClose]);
 
   const activeQuests = (world.quests || []).filter(q => q.status === 'active');
 
@@ -188,6 +195,10 @@ export default function ComposeModal({ world, userProfile, onClose, onPost }) {
               <textarea 
                 value={postText}
                 onChange={(e) => setPostText(e.target.value)}
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
                 placeholder="О чем вы думаете?..."
                 maxLength={280}
                 style={{ 
@@ -202,7 +213,8 @@ export default function ComposeModal({ world, userProfile, onClose, onPost }) {
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   minHeight: '100px',
                   padding: 0,
-                  margin: 0
+                  margin: 0,
+                  overflow: 'hidden'
                 }}
                 autoFocus
               />

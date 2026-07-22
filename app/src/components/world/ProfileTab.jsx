@@ -3,7 +3,18 @@ import useStore from '../../store/useStore';
 import { Settings, Users, ArrowLeft, Upload, Plus, MessageCircle, Repeat2, Heart } from 'lucide-react';
 import { generateCharacterIntroPost, generateReactions } from '../../api/llm';
 
-export default function ProfileTab({ world }) {
+const renderTextWithMentions = (text) => {
+  if (!text) return null;
+  const parts = text.split(/([@#][\wа-яА-ЯёЁ]+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('@') || part.startsWith('#')) {
+      return <span key={i} style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>{part}</span>;
+    }
+    return part;
+  });
+};
+
+export default function ProfileTab({ world, onOpenThread }) {
   const { userProfile: defaultProfile, apiSettings, setApiSettings, updateWorldData } = useStore();
   const userProfile = world.userProfile || defaultProfile;
   const stats = world.stats || { humor: 1.0, aura: 3.0 };
@@ -163,12 +174,12 @@ export default function ProfileTab({ world }) {
                   <span className="post-author-name">{post.author.name}</span>
                   <span className="post-author-handle">@{post.author.handle}</span>
                 </div>
-                <p className="post-text">{post.text}</p>
+                <p className="post-text">{renderTextWithMentions(post.text)}</p>
                 
                 <div className="post-actions">
-                  <div className="post-action-btn">
+                  <button onClick={() => onOpenThread?.(post)} className="post-action-btn">
                     <MessageCircle size={18} /> {post.replies?.length || 0}
-                  </div>
+                  </button>
                   <div className="post-action-btn" style={{ color: post.isRetweeted ? 'var(--success-color)' : '' }}>
                     <Repeat2 size={18} /> {post.retweets || 0}
                   </div>

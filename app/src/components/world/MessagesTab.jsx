@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, ArrowLeft, Send, MessageSquare } from 'lucide-react';
-import useStore from '../../store/useStore';
+import useStore, { useBackStore } from '../../store/useStore';
 import { processDirectMessage } from '../../api/llm';
 
 export default function MessagesTab({ world }) {
@@ -12,6 +12,14 @@ export default function MessagesTab({ world }) {
   const [msgText, setMsgText] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef(null);
+
+  useEffect(() => {
+    if (activeChat) {
+      const id = 'MessagesModal';
+      useBackStore.getState().pushHandler(id, () => setActiveChat(null));
+      return () => useBackStore.getState().removeHandler(id);
+    }
+  }, [activeChat]);
   
   const relationships = world.relationships || [];
   const chats = world.chats || {};
@@ -78,13 +86,37 @@ export default function MessagesTab({ world }) {
     }
   };
 
+  const activeDialogs = relationships.filter(r => chats[r.handle] && chats[r.handle].length > 0);
+
   return (
-    <div className="flex-col h-full items-center p-4 pb-20">
-      <div className="empty-state">
-        <MessageSquare size={48} className="empty-state-icon" />
-        <h3 className="empty-state-title">У вас пока нет активных диалогов</h3>
-        <p className="empty-state-text">Начните новую переписку, нажав кнопку +</p>
-      </div>
+    <div className="flex-col h-full items-stretch pb-20">
+      {activeDialogs.length === 0 ? (
+        <div className="empty-state p-4">
+          <MessageSquare size={48} className="empty-state-icon" />
+          <h3 className="empty-state-title">У вас пока нет активных диалогов</h3>
+          <p className="empty-state-text">Начните новую переписку, нажав кнопку +</p>
+        </div>
+      ) : (
+        <div className="flex-col">
+          {activeDialogs.map((rel, idx) => {
+            const history = chats[rel.handle];
+            const lastMsg = history[history.length - 1];
+            return (
+              <div key={idx} className="event-suggestion" style={{ padding: '1rem', display: 'flex', gap: '12px', alignItems: 'center' }} onClick={() => setActiveChat(rel)}>
+                <div className="avatar" style={{ width: 48, height: 48, flexShrink: 0 }}>
+                  {rel.avatar ? <img src={rel.avatar} style={{width:'100%',height:'100%',objectFit:'cover', borderRadius:'50%'}} /> : rel.name.charAt(0)}
+                </div>
+                <div className="flex-1 overflow-hidden flex-col justify-center">
+                  <div className="post-author-name">{rel.name}</div>
+                  <div className="post-text text-secondary" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0, fontSize: '0.9rem' }}>
+                    {lastMsg.sender === 'user' ? 'Вы: ' : ''}{lastMsg.text}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <button 
         onClick={() => setShowContacts(true)}
@@ -151,18 +183,28 @@ export default function MessagesTab({ world }) {
             )}
           </div>
 
-          <div className="flex gap-3 p-4" style={{ borderTop: '1px solid var(--border-color)' }}>
-            <input 
-              type="text" 
+          <div className="flex gap-3 p-4" style={{ borderTop: '1px solid var(--border-color)', paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))', alignItems: 'flex-end' }}>
+            <textarea 
               className="input-field flex-1" 
               placeholder="Сообщение..." 
-              style={{ marginBottom: 0 }} 
+              rows={1}
+              style={{ marginBottom: 0, resize: 'none', overflow: 'hidden', minHeight: '44px', maxHeight: '150px' }} 
               value={msgText}
               onChange={e => setMsgText(e.target.value)}
-              onKeyPress={e => e.key === 'Enter' && handleSend()}
+              onInput={e => {
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+              }}
+              onKeyPress={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                  e.target.style.height = 'auto';
+                }
+              }}
               disabled={loading}
             />
-            <button className="btn btn-primary" onClick={handleSend} disabled={!msgText.trim() || loading}>
+            <button className="btn btn-primary" style={{ height: '44px' }} onClick={() => { handleSend(); setMsgText(''); }} disabled={!msgText.trim() || loading}>
               <Send size={18} />
             </button>
           </div>

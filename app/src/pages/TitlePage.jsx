@@ -1,11 +1,11 @@
 import React, { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useStore from '../store/useStore';
-import { Settings, Plus, Globe, Trash, Upload, Download, Edit2 } from 'lucide-react';
+import { Settings, Plus, Globe, Trash, Upload, Download, Edit2, Sun, Moon } from 'lucide-react';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 export default function TitlePage({ onOpenSettings }) {
-  const { worlds, setActiveWorldId, deleteWorld, importWorld } = useStore();
+  const { worlds, setActiveWorldId, deleteWorld, importWorld, theme, toggleTheme } = useStore();
   const navigate = useNavigate();
   const importInputRef = useRef(null);
 
@@ -71,9 +71,14 @@ export default function TitlePage({ onOpenSettings }) {
         <h1 className="section-title">
           status<span style={{ background: 'var(--gradient-accent)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>.</span>
         </h1>
-        <button onClick={onOpenSettings} className="btn-icon">
-          <Settings size={22} />
-        </button>
+        <div className="flex gap-2">
+          <button onClick={toggleTheme} className="btn-icon">
+            {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
+          </button>
+          <button onClick={onOpenSettings} className="btn-icon">
+            <Settings size={22} />
+          </button>
+        </div>
       </header>
 
       <div className="sticky-header flex justify-between items-center" style={{ marginTop: '1rem' }}>

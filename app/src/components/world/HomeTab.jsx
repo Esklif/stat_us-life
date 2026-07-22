@@ -1,36 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import useStore from '../../store/useStore';
-import { MessageCircle, Repeat2, Heart, Plus, Sparkles } from 'lucide-react';
+import useStore, { useBackStore } from '../../store/useStore';
+import { MessageCircle, Repeat2, Heart, Plus, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { generateEvents, generateReactions, processWorldEffects, generatePostSuggestions, simulateBackgroundActivity } from '../../api/llm';
 import WorldOnboarding from './WorldOnboarding';
 import ComposeModal from './ComposeModal';
 
 const renderTextWithMentions = (text) => {
   if (!text) return null;
-  const parts = text.split(/(@\w+)/g);
+  const parts = text.split(/([@#][\wа-яА-ЯёЁ]+)/g);
   return parts.map((part, i) => {
-    if (part.startsWith('@')) {
+    if (part.startsWith('@') || part.startsWith('#')) {
       return <span key={i} style={{ color: 'var(--accent-color)', fontWeight: 'bold' }}>{part}</span>;
     }
     return part;
   });
 };
 
-export default function HomeTab({ world }) {
+export default function HomeTab({ world, onOpenThread }) {
   const { userProfile: defaultProfile, updateWorldData } = useStore();
   const userProfile = world.userProfile || defaultProfile;
   const [loading, setLoading] = useState(false);
   const [welcomeData, setWelcomeData] = useState(world.welcomeData);
   const [showCompose, setShowCompose] = useState(false);
   const [postText, setPostText] = useState('');
-  const [activePost, setActivePost] = useState(null); 
-  const [replyText, setReplyText] = useState('');
-  
-  // Events
   const [showEvents, setShowEvents] = useState(false);
   const [eventsList, setEventsList] = useState([]);
-  const [customEvent, setCustomEvent] = useState('');
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [currentEventIndex, setCurrentEventIndex] = useState(0);
+  const [customEvent, setCustomEvent] = useState('');
+
+  useEffect(() => {
+    if (showEvents) {
+      const id = 'EventsModal';
+      useBackStore.getState().pushHandler(id, () => setShowEvents(false));
+      return () => useBackStore.getState().removeHandler(id);
+    }
+  }, [showEvents]);
 
   // Pull-to-refresh State
   const [refreshing, setRefreshing] = useState(false);
@@ -391,25 +396,13 @@ export default function HomeTab({ world }) {
     });
   };
 
-  const handleReplySubmit = () => {
-    if (!replyText.trim()) return;
-    updateWorldData(world.id, w => {
-      const posts = w.posts.map(p => {
-        if (p.id === activePost.id) {
-          return { ...p, replies: [...(p.replies || []), { name: userProfile.name, handle: userProfile.handle, reply: replyText, isChar: false }] };
-        }
-        return p;
-      });
-      return { ...w, posts };
-    });
-    setReplyText('');
-    setActivePost(null);
-  };
+
 
   const handleOpenEvents = async () => {
     setShowEvents(true);
     setEventsLoading(true);
     try {
+      setCurrentEventIndex(0);
       const events = await generateEvents(world);
       setEventsList(events.suggestedEvents || []);
     } catch (e) {
@@ -468,6 +461,22 @@ export default function HomeTab({ world }) {
 
       {/* Feed */}
       <div className="flex-col">
+        {(loading || refreshing) && (
+          <div className="post-card" style={{ gap: '12px' }}>
+            <div className="flex items-center gap-3 w-full">
+              <div className="skeleton skeleton-avatar"></div>
+              <div className="flex-col gap-1 w-full" style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text" style={{ width: '30%' }}></div>
+                <div className="skeleton skeleton-text" style={{ width: '20%' }}></div>
+              </div>
+            </div>
+            <div className="flex-col gap-2 w-full mt-2">
+              <div className="skeleton skeleton-text" style={{ width: '100%' }}></div>
+              <div className="skeleton skeleton-text" style={{ width: '90%' }}></div>
+              <div className="skeleton skeleton-text" style={{ width: '60%' }}></div>
+            </div>
+          </div>
+        )}
         {world.posts?.length > 0 && pullDistance === 0 && !refreshing && (
            <div className="pull-hint">
              Потяните вниз, чтобы обновить ленту
@@ -499,7 +508,7 @@ export default function HomeTab({ world }) {
               
               {!post.isSystem && (
                 <div className="post-actions">
-                  <button onClick={() => setActivePost(post)} className="post-action-btn">
+                  <button onClick={() => onOpenThread?.(post)} className="post-action-btn">
                     <MessageCircle size={18} /> {post.replies?.length || 0}
                   </button>
                   <button onClick={() => handleRetweet(post)} className={`post-action-btn${post.isRetweeted ? ' retweeted' : ''}`}>
@@ -535,16 +544,45 @@ export default function HomeTab({ world }) {
              </header>
              <div className="p-4 flex-col gap-3">
                 {eventsLoading ? (
-                  <div className="text-center text-secondary">LLM генерирует события...</div>
+                  <div className="flex-col gap-4">
+                    <div className="skeleton" style={{ height: '80px', borderRadius: 'var(--radius-sm)' }}></div>
+                    <div className="flex justify-between items-center px-4">
+                      <div className="skeleton" style={{ width: '40px', height: '40px', borderRadius: '50%' }}></div>
+                      <div className="skeleton" style={{ width: '40px', height: '16px', borderRadius: '4px' }}></div>
+                      <div className="skeleton" style={{ width: '40px', height: '40px', borderRadius: '50%' }}></div>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <p className="text-secondary" style={{ fontSize: '0.9rem' }}>Выберите событие или создайте своё. Оно повлияет на мир.</p>
-                    {eventsList.map((ev, i) => (
-                      <button key={i} onClick={() => applyEvent(ev)} className="btn btn-secondary" style={{ textAlign: 'left', whiteSpace: 'normal' }}>
-                        {ev}
-                      </button>
-                    ))}
-                    <div className="divider"></div>
+                    {eventsList.length > 0 && (
+                      <div className="flex-col gap-2 items-center w-full">
+                        <div className="event-suggestion w-full text-center" style={{ minHeight: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {eventsList[currentEventIndex]}
+                        </div>
+                        <div className="flex items-center gap-4 mt-2">
+                          <button 
+                            className="btn-icon" 
+                            onClick={() => setCurrentEventIndex(prev => (prev > 0 ? prev - 1 : eventsList.length - 1))}
+                          >
+                            <ChevronLeft size={20} />
+                          </button>
+                          <span className="text-secondary" style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
+                            {currentEventIndex + 1} / {eventsList.length}
+                          </span>
+                          <button 
+                            className="btn-icon" 
+                            onClick={() => setCurrentEventIndex(prev => (prev < eventsList.length - 1 ? prev + 1 : 0))}
+                          >
+                            <ChevronRight size={20} />
+                          </button>
+                        </div>
+                        <button className="btn btn-secondary w-full mt-2" onClick={() => applyEvent(eventsList[currentEventIndex])}>
+                          Выбрать это событие
+                        </button>
+                      </div>
+                    )}
+                    <div className="divider" style={{ margin: '0.5rem 0' }}></div>
                     <label className="input-label">Свое событие</label>
                     <input type="text" className="input-field" value={customEvent} onChange={e => setCustomEvent(e.target.value)} placeholder="Придумайте событие..." />
                     <button className="btn btn-primary" onClick={() => applyEvent(customEvent)} disabled={!customEvent.trim()}>Запустить событие</button>
@@ -565,82 +603,6 @@ export default function HomeTab({ world }) {
         />
       )}
 
-      {/* Reply Modal */}
-      {activePost && (
-        <div className="modal-fullscreen">
-          <header className="modal-header">
-            <button onClick={() => setActivePost(null)} className="btn btn-ghost">Назад</button>
-            <div className="modal-title">Ветка (Thread)</div>
-            <div style={{ width: '40px' }}></div>
-          </header>
-          
-          <div className="flex-col p-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
-            <div className="flex gap-3 mb-3 items-center">
-              <div
-                className="avatar"
-                style={{
-                  width: 48,
-                  height: 48,
-                  backgroundImage: activePost.author.avatar ? `url(${activePost.author.avatar})` : 'none',
-                  backgroundColor: activePost.isSystem ? '#9333ea' : '#333',
-                }}
-              >
-                {!activePost.author.avatar && activePost.author.name.charAt(0)}
-              </div>
-              <div className="flex-col justify-center">
-                 <div className="post-author-name" style={{ fontSize: '1.1rem' }}>{activePost.author.name}</div>
-                 <div className="post-author-handle">@{activePost.author.handle}</div>
-              </div>
-            </div>
-            <p className="post-text" style={{ fontSize: '1rem', marginTop: 0 }}>{renderTextWithMentions(activePost.text)}</p>
-          </div>
-
-          <div className="flex-1 p-4 flex-col gap-4" style={{ overflowY: 'auto' }}>
-            {activePost.replies?.map((reply, idx) => (
-              <div key={idx} className="flex gap-3 mb-2">
-                <div
-                  className="avatar"
-                  style={{
-                    width: 40,
-                    height: 40,
-                    backgroundImage: reply.avatar ? `url(${reply.avatar})` : 'none',
-                    backgroundColor: reply.isChar ? 'var(--accent-purple)' : 'var(--surface-color-hover)',
-                  }}
-                >
-                  {!reply.avatar && reply.name.charAt(0)}
-                </div>
-                <div className="flex-1 flex-col justify-center">
-                  <div className="flex items-center gap-2">
-                    <span className="post-author-name">{reply.name}</span>
-                    <span className="post-author-handle">@{reply.handle.replace('@','')}</span>
-                  </div>
-                  <p className="post-text" style={{ fontSize: '1rem', marginTop: '4px' }}>{renderTextWithMentions(reply.reply)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ borderTop: '1px solid var(--border-color)', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-               <div style={{ position: 'relative', flex: 1 }}>
-                 <input 
-                   type="text" 
-                   className="input-field" 
-                   placeholder="Ваш ответ..." 
-                   maxLength={280}
-                   value={replyText}
-                   onChange={e => setReplyText(e.target.value)}
-                   style={{ paddingRight: '50px' }}
-                 />
-                 <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: replyText.length >= 280 ? 'var(--danger-color)' : 'var(--text-secondary)' }}>
-                   {replyText.length}/280
-                 </div>
-               </div>
-               <button className="btn btn-primary" onClick={handleReplySubmit} disabled={!replyText.trim()}>Ответить</button>
-             </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

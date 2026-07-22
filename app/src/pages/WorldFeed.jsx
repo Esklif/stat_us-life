@@ -7,6 +7,7 @@ import QuestsTab from '../components/world/QuestsTab';
 import MessagesTab from '../components/world/MessagesTab';
 import NotificationsTab from '../components/world/NotificationsTab';
 import ProfileTab from '../components/world/ProfileTab';
+import ThreadModal from '../components/world/ThreadModal';
 
 export default function WorldFeed() {
   const { id } = useParams();
@@ -15,6 +16,7 @@ export default function WorldFeed() {
   
   const world = worlds.find(w => w.id === id);
   const [activeTab, setActiveTab] = useState('home');
+  const [activePost, setActivePost] = useState(null);
 
   const unreadCount = Math.max(0, (world?.notifications?.length || 0) - (world?.seenNotificationsCount || 0));
 
@@ -51,12 +53,21 @@ export default function WorldFeed() {
       </header>
 
       <main className="flex-1 w-full relative">
-        {activeTab === 'home' && <HomeTab world={world} />}
+        {activeTab === 'home' && <HomeTab world={world} onOpenThread={setActivePost} />}
         {activeTab === 'quests' && <QuestsTab world={world} />}
         {activeTab === 'messages' && <MessagesTab world={world} />}
         {activeTab === 'notifications' && <NotificationsTab world={world} />}
-        {activeTab === 'profile' && <ProfileTab world={world} />}
+        {activeTab === 'profile' && <ProfileTab world={world} onOpenThread={setActivePost} />}
       </main>
+
+      {activePost && (
+        <ThreadModal 
+          world={world} 
+          post={activePost} 
+          userProfile={world.userProfile || useStore.getState().userProfile}
+          onClose={() => setActivePost(null)}
+        />
+      )}
 
       <nav className="bottom-nav">
         <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => handleTabChange('home')}>
